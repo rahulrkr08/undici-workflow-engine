@@ -1,0 +1,52 @@
+{
+  "name": "undici-workflow-engine",
+  "version": "1.0.0",
+  "description": "A workflow engine that orchestrates HTTP services using Undici.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "borp --coverage tests/*.test.ts --coverage-exclude '**/node_modules/**' --coverage-exclude '**/tests/**'",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "orchestrator",
+    "undici",
+    "service",
+    "http",
+    "oidc",
+    "async",
+    "dependency",
+    "jsonpath"
+  ],
+  "author": "Rahul Radhakrishnan",
+  "license": "MIT",
+  "dependencies": {
+    "async-flow-orchestrator": "^1.2.0",
+    "undici": "^7.16.0",
+    "undici-oidc-interceptor": "^0.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "borp": "^0.21.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/undici-workflow-engine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/undici-workflow-engine/issues"
+  }
+}

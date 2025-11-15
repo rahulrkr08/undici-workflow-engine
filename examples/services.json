@@ -1,0 +1,96 @@
+{
+  "services": [
+    {
+      "id": "service01",
+      "service": {
+        "url": "https://www.example.com/api/auth-hosted/verify",
+        "method": "GET",
+        "headers": {
+          "content-type": "application/json",
+          "accept": "application/json"
+        },
+        "cookies": {
+          "sessionId": "$request.cookies.sessionId"
+        },
+        "timeout": 10000,
+        "fallback": {
+          "data": {
+            "fallbackdata": true
+          }
+        }
+      }
+    },
+    {
+      "id": "service02",
+      "dependsOn": [
+        "service01"
+      ],
+      "service": {
+        "url": "https://www.example.com/api/post-data",
+        "method": "POST",
+        "headers": {
+          "content-type": "$request.headers.content-type",
+          "accept": "application/json"
+        },
+        "cookies": {
+          "sessionId": "$request.cookies.sessionId"
+        },
+        "body": {
+          "userId": "$service01.body.sub",
+          "firstname": "$service01.body.first_name",
+          "lastname": "$service01.body.last_name",
+          "email": "$service01.body.email",
+          "workspaceId": "$request.body.workspaceId"
+        }
+      }
+    },
+    {
+      "id": "service03",
+      "dependsOn": [
+        "service01"
+      ],
+      "service": {
+        "url": "https://www.example.com/api/post-another-data",
+        "method": "POST",
+        "headers": {
+          "content-type": "$request.headers.content-type",
+          "accept": "application/json"
+        },
+        "cookies": {
+          "sessionId": "$request.cookies.sessionId"
+        },
+        "body": {
+          "userId": "$service01.body.sub",
+          "workspaceId": "$request.body.workspaceId"
+        }
+      }
+    },
+    {
+      "id": "service04",
+      "dependsOn": [
+        "service02",
+        "service03"
+      ],
+      "service": {
+        "url": "https://www.example.com/api/get-data",
+        "method": "GET",
+        "headers": {
+          "content-type": "$request.headers.content-type",
+          "accept": "application/json"
+        },
+        "cookies": {
+          "sessionId": "$request.cookies.sessionId"
+        },
+        "query": {
+          "userId": "$service01.body.sub",
+          "workspaceId": "$request.body.workspaceId"
+        },
+        "oidc": {
+          "clientId": "$env.OIDC_CLIENT_ID",
+          "clientSecret": "$env.OIDC_CLIENT_SECRET",
+          "scope": "$env.OIDC_SCOPE"
+        }
+      }
+    }
+  ]
+}
