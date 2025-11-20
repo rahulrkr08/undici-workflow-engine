@@ -1105,4 +1105,41 @@ test('Orchestrator - Error Catch and Recovery', async t => {
     assert.ok(result.services.service1 !== undefined);
     assert.ok(result.services.service2 !== undefined);
   });
+
+  await t.test('should handle orchestration workflow error gracefully', async () => {
+    // Create a service with invalid URL that will fail
+    const services: ServiceBlock[] = [
+      {
+        id: 'invalidService',
+        service: {
+          url: 'invalid://not-a-valid-url',
+          method: 'GET',
+        },
+      },
+    ];
+
+    const context: OrchestrationContext = {
+      request: { body: {}, headers: {}, cookies: {}, query: {} },
+    };
+
+    // This should not throw even though the service fails
+    const result = await runOrchestration(services, context);
+
+    // Result should have empty services map when service fails
+    assert.strictEqual(typeof result.services, 'object');
+    assert.ok(result.context !== undefined);
+  });
+
+  await t.test('should handle empty services array', async () => {
+    const services: ServiceBlock[] = [];
+
+    const context: OrchestrationContext = {
+      request: { body: {}, headers: {}, cookies: {}, query: {} },
+    };
+
+    const result = await runOrchestration(services, context);
+
+    assert.deepStrictEqual(result.services, {});
+    assert.strictEqual(result.context, context);
+  });
 });

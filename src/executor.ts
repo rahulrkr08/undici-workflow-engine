@@ -1,12 +1,21 @@
 import { request as undiciRequest, Agent as UndiciAgent } from 'undici';
-import type { ServiceConfig, ServiceResult } from './types.js';
+import type { ServiceConfig, ServiceResult, OrchestrationContext } from './types.js';
+import { emitServiceStart, emitServiceComplete, emitServiceError } from './diagnostics.js';
 
 /**
  * Executes a single HTTP service call using Undici
  */
 export async function executeService(
-  config: ServiceConfig
+  config: ServiceConfig,
+  context?: OrchestrationContext,
+  serviceId?: string
 ): Promise<ServiceResult> {
+  const startTime = Date.now();
+
+  if (context && serviceId) {
+    emitServiceStart(serviceId, config, context);
+  }
+
   try {
     const agent = new UndiciAgent()
     // Build URL with query params
@@ -109,6 +118,11 @@ export async function executeService(
       }
     }
 
+    const processingTime = Date.now() - startTime;
+    if (context && serviceId) {
+      emitServiceComplete(serviceId, config, context, processingTime, response.statusCode);
+    }
+
     return {
       status: response.statusCode,
       body: parsedBody,
@@ -116,6 +130,11 @@ export async function executeService(
       cookies: responseCookies,
     };
   } catch (error: any) {
+    const processingTime = Date.now() - startTime;
+    if (context && serviceId) {
+      emitServiceError(serviceId, config, context, processingTime, error);
+    }
+
     // If fallback is configured, return it
     if (config.fallback) {
       return {
