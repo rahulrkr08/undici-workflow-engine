@@ -30,7 +30,11 @@ export async function runOrchestration(
 
       // Execute the HTTP service and return result
       // async-flow-orchestrator will store it in context
-      const result = await executeService(interpolatedConfig);
+      const result = await executeService(
+        interpolatedConfig,
+        workflowContext.getAll() as OrchestrationContext,
+        serviceBlock.id
+      );
       return result;
     },
     errorStrategy: 'silent' as const, // Continue on error (fallback handles it)
