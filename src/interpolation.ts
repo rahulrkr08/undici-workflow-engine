@@ -2,15 +2,18 @@ import type { OrchestrationContext } from './types.js';
 
 /**
  * Resolves a value using the interpolation syntax:
- * - $<contextKey>.path.to.value
+ * - {$<contextKey>.path.to.value} - with curly braces
+ *
+ * Supports text before, after, and between interpolation tokens.
  *
  * Examples:
- * - $service.serviceId.body.field
- * - $request.body.email
- * - $env.API_KEY
- * - $customData.value
+ * - {$env.HOST}/api/users → https://api.example.com/api/users
+ * - {$env.TEXT}api → helloapi
+ * - {$env.A}/{$env.B} → path/file
+ * - https://{$env.HOST}:{$env.PORT}/api/{$request.body.id}
  *
  * The context key can be any root property in the context object.
+ * If a token cannot be resolved, it is returned unchanged.
  */
 export function interpolateValue(
   value: any,
@@ -20,40 +23,43 @@ export function interpolateValue(
     return value;
   }
 
-  // Match $<contextKey>.path.to.value pattern
-  const match = value.match(/^\$([a-zA-Z0-9_]+)(.*)$/);
-  if (!match) {
-    // No interpolation pattern found
-    return value;
-  }
+  // Match {$<contextKey>.path.to.value} pattern and process each token
+  return value.replace(/\{\$([a-zA-Z0-9_]+)([^}]*)\}/g, (match, contextKey, pathWithDot) => {
+    // Remove leading dot from path if present
+    const path = pathWithDot.startsWith('.') ? pathWithDot.slice(1) : pathWithDot;
 
-  const [, contextKey, pathWithDot] = match;
-  // Remove leading dot from path if present
-  const path = pathWithDot.startsWith('.') ? pathWithDot.slice(1) : pathWithDot;
-  // Special handling for 'env' - check both context.env and process.env
-  if (contextKey === 'env') {
-    // First check context.env, then process.env
-    return context.env?.[path] || process.env[path] || value;
-  }
+    // Special handling for 'env'
+    if (contextKey === 'env') {
+      const resolved = context.env?.[path] || process.env[path];
+      return resolved !== undefined ? String(resolved) : match;
+    }
 
-  // For any other context key, resolve from the context object
-  const contextValue = context[contextKey as keyof OrchestrationContext];
+    // For any other context key, resolve from the context object
+    const contextValue = context[contextKey as keyof OrchestrationContext];
 
-  if (contextValue === undefined) {
-    // Context key not found
-    return undefined;
-  }
+    if (contextValue === undefined) {
+      // Context key not found, return original token
+      return match;
+    }
 
-  // If there's a path, resolve it; otherwise return the entire context value
-  if (path) {
-    return resolvePath(path, contextValue);
-  }
+    // If there's a path, resolve it; otherwise return the entire context value
+    let resolved: any;
+    if (path) {
+      resolved = resolvePath(path, contextValue);
+    } else {
+      resolved = contextValue;
+    }
 
-  return contextValue;
+    // Convert to string if not undefined or null
+    return resolved !== undefined && resolved !== null ? String(resolved) : match;
+  });
 }
 
 /**
  * Recursively interpolates all string values in an object
+ * If a string is a single complete interpolation token (e.g., {$service.body}),
+ * returns the resolved value with its original type.
+ * If a string has text before/after the token, returns a string.
  */
 export function interpolateObject(
   obj: any,
@@ -64,6 +70,33 @@ export function interpolateObject(
   }
 
   if (typeof obj === 'string') {
+    // Check if this is a single complete interpolation token (no text before/after)
+    const singleTokenMatch = obj.match(/^\{\$([a-zA-Z0-9_]+)([^}]*)\}$/);
+    if (singleTokenMatch) {
+      // This is a single token - resolve it and return with original type
+      const [, contextKey, pathWithDot] = singleTokenMatch;
+      const path = pathWithDot.startsWith('.') ? pathWithDot.slice(1) : pathWithDot;
+
+      if (contextKey === 'env') {
+        const resolved = context.env?.[path] || process.env[path];
+        return resolved !== undefined ? resolved : obj;
+      }
+
+      const contextValue = context[contextKey as keyof any];
+      if (contextValue === undefined) {
+        return obj;
+      }
+
+      let resolved: any;
+      if (path) {
+        resolved = resolvePath(path, contextValue);
+      } else {
+        resolved = contextValue;
+      }
+      return resolved !== undefined ? resolved : obj;
+    }
+
+    // Multiple tokens or mixed text - use interpolateValue which returns a string
     return interpolateValue(obj, context);
   }
 

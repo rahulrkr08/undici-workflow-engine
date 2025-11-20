@@ -8,11 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Key Features:**
 - Service dependency orchestration (topological sorting)
-- Variable interpolation using `$<contextKey>.path` syntax
+- Variable interpolation using `{$<contextKey>.path}` syntax
 - Fallback responses for failed services
 - OIDC authentication support (via undici-oidc-interceptor)
 - Automatic Set-Cookie extraction and cookie management
-- 98.76% code coverage with 149 comprehensive tests
+- 98.32% code coverage with 164 comprehensive tests
 
 ## Architecture Overview
 
@@ -49,40 +49,51 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Timeout support
 
 **4. interpolation.ts** - Variable interpolation
-- `interpolateValue(value, context)` - Interpolates single value
-  - Pattern: `$<contextKey>.path.to.value`
-  - Special handling for `$env` (checks context.env and process.env)
+- `interpolateValue(value, context)` - Interpolates string with tokens
+  - Pattern: `{$<contextKey>.path.to.value}` (curly braces required)
+  - Supports text before/after/between tokens: `{$env.HOST}/api/{$request.id}`
+  - Special handling for `{$env}` (checks context.env and process.env)
   - Uses `resolvePath()` for nested property access
-  - Supports bracket notation: `$service.body["custom:field"]`
+  - Supports bracket notation: `{$service.body["custom:field"]}`
+  - Returns string with tokens replaced; unresolved tokens remain unchanged
 - `interpolateObject(obj, context)` - Recursively interpolates object/array
+  - Single complete token (e.g., `{$service.items}`) returns original type
+  - Mixed text or multiple tokens (e.g., `{$a}-{$b}`) returns string
 - `cookiesToHeader(cookies)` - Converts cookies object to "Cookie" header string
 - `buildQueryString(query)` - Converts query object to URL search params
 
 ### Variable Interpolation Syntax
 
-```
-$<contextKey>.path.to.value
-```
+Tokens are wrapped in curly braces: `{$<contextKey>.path.to.value}`
 
-The context key can be any root-level property in the context object. Common examples:
+The context key can be any root-level property in the context object. Supports text before, after, and between tokens.
 
 ```typescript
 // Service results (service ID is the context key)
-userId: '$authenticate.body.id'
-token: '$getUserData.body.token'
+userId: '{$authenticate.body.id}'
+token: '{$getUserData.body.token}'
 
 // Request context
-email: '$request.body.email'
-authorization: '$request.headers.authorization'
+email: '{$request.body.email}'
+authorization: '{$request.headers.authorization}'
 
 // Environment variables
-apiKey: '$env.API_KEY'
+apiKey: '{$env.API_KEY}'
 
 // Custom context keys
-customField: '$customData.token'
+customField: '{$customData.token}'
 
 // Bracket notation for special characters
-field: '$serviceId.body["custom:field"]'
+field: '{$serviceId.body["custom:field"]}'
+
+// URL construction with text
+url: '{$env.HOST}/api/users/{$request.body.userId}'
+
+// Multiple tokens in one string
+fullUrl: 'https://{$env.HOST}:{$env.PORT}/api/{$request.id}'
+
+// Query string with interpolation
+query: '?token={$auth.token}&id={$user.id}'
 ```
 
 ## Development Commands
@@ -109,14 +120,14 @@ npx tsc --noEmit
 
 ## Testing Strategy
 
-**Test Files (149 tests total):**
+**Test Files (164 tests total):**
 1. `executor.test.ts` (43 tests) - HTTP operations, query params, headers, cookies, error handling
 2. `executor-cookies.test.ts` (22 tests) - Set-Cookie extraction and handling (100% coverage of lines 102-110)
-3. `interpolation.test.ts` (17 tests) - Variable interpolation with all context keys
-4. `orchestrator.test.ts` (24 tests) - Dependency execution, error handling, recovery patterns
+3. `interpolation.test.ts` (32 tests) - Variable interpolation with curly braces, all context keys, and edge cases
+4. `orchestrator.test.ts` (29 tests) - Dependency execution, error handling, recovery patterns, interpolation
 5. `oidc-coverage.test.ts` (12 tests) - OIDC token flow, caching, refresh
 6. `oidc-workflow.test.ts` (15 tests) - OIDC in orchestration contexts
-7. `integration.test.ts` (4 tests) - End-to-end workflows with real public APIs
+7. `integration.test.ts` (11 tests) - End-to-end workflows with real public APIs
 
 **Test Infrastructure:**
 - Node.js native test runner (`node:test`)
@@ -184,14 +195,14 @@ Located in `executor.ts` lines 102-110:
 
 ## Code Coverage
 
-Current coverage: **98.76%** (all functions at 100%)
+Current coverage: **98.32%** (all functions at 100%)
 
 - `executor.ts`: 100% (all lines, branches, functions)
-- `interpolation.ts`: 98.4% (lines 90-91 uncovered - edge case handling)
+- `interpolation.ts`: 97.46% (lines 87-88, 123-124 uncovered - edge case handling in interpolateObject)
 - `orchestrator.ts`: 96.77% (lines 60-61 uncovered - error recovery edge cases)
 
 **Coverage Gaps:**
-- Interpolation lines 90-91: Missing context key error handling
+- Interpolation lines 87-88, 123-124: Edge case handling in interpolateObject for undefined context
 - Orchestrator lines 60-61: Empty services array handling
 
 ## Documentation Files
@@ -229,14 +240,21 @@ Current coverage: **98.76%** (all functions at 100%)
 ### Updating Interpolation Logic
 
 Core interpolation is in `interpolation.ts`:
-- `interpolateValue()` - Single value with regex matching
-- `interpolateObject()` - Recursive for objects/arrays
+- `interpolateValue()` - Replaces tokens in strings (returns string)
+  - Pattern: `{$<contextKey>.path.to.value}` with curly braces
+  - Supports multiple tokens and text before/after
+  - Unresolved tokens remain unchanged in output
+- `interpolateObject()` - Recursive for objects/arrays (preserves types)
+  - Single token `{$key.path}` returns resolved value with original type
+  - Multiple tokens or mixed text returns string
 - `resolvePath()` - Property path resolution with bracket notation
 
-Pattern matching is strict: `$<contextKey>.path`
+Pattern matching uses curly braces: `{$<contextKey>.path}`
+- Requires curly braces `{}` to delimit tokens
 - Requires `$` prefix and valid identifier for contextKey
-- Supports bracket notation for special characters in path
-- Returns undefined if context key not found
+- Supports bracket notation for special characters in path: `{$service.body["custom:field"]}`
+- Returns original token if context key not found
+- Supports text before/after: `prefix-{$key}-suffix`
 
 ### Adding OIDC to a Service
 

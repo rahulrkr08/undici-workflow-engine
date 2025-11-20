@@ -191,7 +191,7 @@ test('Orchestrator - Variable Interpolation', async t => {
           url: 'https://jsonplaceholder.typicode.com/posts',
           method: 'GET',
           query: {
-            userId: '$request.query.userId',
+            userId: '{$request.query.userId}',
           },
         },
       },
