@@ -63,7 +63,7 @@ The endpoint to call. Supports variable interpolation.
 url: 'https://api.example.com/users'
 
 // Dynamic URL with interpolation
-url: 'https://api.example.com/users/$request.body.userId'
+url: 'https://api.example.com/users/{$request.body.userId}'
 ```
 
 ### Method
@@ -86,9 +86,9 @@ HTTP headers for the request. All values support variable interpolation.
 ```typescript
 headers: {
   'content-type': 'application/json',
-  'authorization': '$env.BEARER_TOKEN',
-  'x-user-id': '$request.body.userId',
-  'x-request-id': '$authenticate.body.requestId',
+  'authorization': '{$env.BEARER_TOKEN}',
+  'x-user-id': '{$request.body.userId}',
+  'x-request-id': '{$authenticate.body.requestId}',
 }
 ```
 
@@ -98,8 +98,8 @@ HTTP cookies to send with the request. Values support variable interpolation.
 
 ```typescript
 cookies: {
-  'sessionId': '$request.cookies.sessionId',
-  'preferences': '$settings.body.preferences',
+  'sessionId': '{$request.cookies.sessionId}',
+  'preferences': '{$settings.body.preferences}',
   'locale': 'en-US',
 }
 ```
@@ -112,8 +112,8 @@ URL query parameters. All values are strings and support variable interpolation.
 query: {
   'page': '1',
   'limit': '50',
-  'filter': '$request.body.status',
-  'userId': '$getUserId.body.id',
+  'filter': '{$request.body.status}',
+  'userId': '{$getUserId.body.id}',
 }
 ```
 
@@ -130,19 +130,19 @@ body: {
 
 // With interpolation
 body: {
-  email: '$request.body.email',
-  userId: '$authenticate.body.id',
+  email: '{$request.body.email}',
+  userId: '{$authenticate.body.id}',
   roles: ['admin', 'user'],
 }
 
 // Nested objects
 body: {
   user: {
-    name: '$request.body.name',
-    email: '$request.body.email',
+    name: '{$request.body.name}',
+    email: '{$request.body.email}',
   },
   settings: {
-    theme: '$userSettings.body.theme',
+    theme: '{$userSettings.body.theme}',
     notifications: true,
   },
   tags: ['vip', 'verified'],
@@ -242,40 +242,45 @@ service04 (starts after both service02 and service03 complete)
 
 ## Variable Interpolation
 
-All string values in headers, cookies, query, body, and URLs support variable interpolation using the flexible `$<contextKey>.path` syntax.
+All string values in headers, cookies, query, body, and URLs support variable interpolation using the flexible `{$<contextKey>.path}` syntax with curly braces.
 
-The context key can be any root-level property in the context object.
+The context key can be any root-level property in the context object. Supports text before, after, and between tokens.
 
 ### Syntax
 
 ```typescript
-$<contextKey>.path.to.value
+{$<contextKey>.path.to.value}
 ```
 
 ### Examples
 
 ```typescript
 // Service results
-'$authenticate.body.token'
-'$getUserData.body.user.id'
-'$getUser.body.id'
+'{$authenticate.body.token}'
+'{$getUserData.body.user.id}'
+'{$getUser.body.id}'
 
 // Request context
-'$request.body.email'
-'$request.headers.authorization'
-'$request.cookies.sessionId'
+'{$request.body.email}'
+'{$request.headers.authorization}'
+'{$request.cookies.sessionId}'
 
 // Environment variables
-'$env.API_KEY'
-'$env.OIDC_CLIENT_ID'
+'{$env.API_KEY}'
+'{$env.OIDC_CLIENT_ID}'
 
 // Custom context keys
-'$customData.token'
-'$auth.token'
+'{$customData.token}'
+'{$auth.token}'
 
 // Bracket notation for special characters
-'$serviceId.body["custom:field"]'
-'$serviceId.body["field-with-dash"]'
+'{$serviceId.body["custom:field"]}'
+'{$serviceId.body["field-with-dash"]}'
+
+// Text before, after, and between tokens
+'https://{$env.HOST}/api/{$request.id}'
+'user_{$request.body.userId}'
+'{$env.PROTOCOL}://{$env.HOST}:{$env.PORT}'
 ```
 
 ## Complete Examples
@@ -289,7 +294,7 @@ $<contextKey>.path.to.value
     url: 'https://api.example.com/users/123',
     method: 'GET',
     headers: {
-      'authorization': '$env.BEARER_TOKEN',
+      'authorization': '{$env.BEARER_TOKEN}',
     },
   }
 }
@@ -306,12 +311,12 @@ $<contextKey>.path.to.value
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-user-id': '$getUser.body.id',
+      'x-user-id': '{$getUser.body.id}',
     },
     body: {
-      userId: '$getUser.body.id',
-      name: '$request.body.name',
-      email: '$request.body.email',
+      userId: '{$getUser.body.id}',
+      name: '{$request.body.name}',
+      email: '{$request.body.email}',
     },
   }
 }
@@ -326,7 +331,7 @@ $<contextKey>.path.to.value
     url: 'https://api.example.com/search',
     method: 'GET',
     query: {
-      q: '$request.body.query',
+      q: '{$request.body.query}',
       limit: '50',
       offset: '0',
     },
@@ -350,8 +355,8 @@ $<contextKey>.path.to.value
     url: 'https://api.example.com/protected',
     method: 'GET',
     oidc: {
-      clientId: '$env.OIDC_CLIENT_ID',
-      clientSecret: '$env.OIDC_CLIENT_SECRET',
+      clientId: '{$env.OIDC_CLIENT_ID}',
+      clientSecret: '{$env.OIDC_CLIENT_SECRET}',
       scope: 'openid profile email',
       tokenUrl: 'https://auth.example.com/token',
     },
@@ -369,20 +374,20 @@ $<contextKey>.path.to.value
     url: 'https://api.example.com/submit',
     method: 'POST',
     headers: {
-      'authorization': '$authenticate.body.token',
-      'x-validation-token': '$validateData.body.token',
+      'authorization': '{$authenticate.body.token}',
+      'x-validation-token': '{$validateData.body.token}',
     },
     body: {
       user: {
-        id: '$authenticate.body.userId',
-        email: '$request.body.email',
+        id: '{$authenticate.body.userId}',
+        email: '{$request.body.email}',
       },
       data: {
-        values: '$validateData.body.validatedValues',
+        values: '{$validateData.body.validatedValues}',
       },
       metadata: {
-        timestamp: '$request.body.timestamp',
-        locale: '$env.LOCALE',
+        timestamp: '{$request.body.timestamp}',
+        locale: '{$env.LOCALE}',
       },
     },
     timeout: 15000,
