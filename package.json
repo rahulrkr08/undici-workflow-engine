@@ -11,6 +11,15 @@
       "default": "./dist/index.js"
     }
   },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "README.md",
+    "LICENSE",
+    "SERVICE_CONFIG.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "borp --coverage tests/*.test.ts --coverage-exclude '**/node_modules/**' --coverage-exclude '**/tests/**'",

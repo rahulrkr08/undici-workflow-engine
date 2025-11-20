@@ -1,4 +1,8 @@
-import { runOrchestration } from './dist/index.js';
+// For local development, import from dist:
+import { runOrchestration } from '../dist/index.js';
+// After npm install, use:
+// import { runOrchestration } from 'undici-workflow-engine';
+
 import { readFileSync } from 'fs';
 
 // Load configuration from services.json
