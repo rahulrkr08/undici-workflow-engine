@@ -5,7 +5,7 @@ A dependency-aware, declarative service orchestrator for orchestrating HTTP serv
 ## Features
 
 - **Dependency-based orchestration** - Define service dependencies and execute them in the correct order
-- **Variable interpolation** - Use `$<contextKey>.path` syntax to reference values from context
+- **Variable interpolation** - Use `{$<contextKey>.path}` syntax to reference values from context
 - **Fallback responses** - Define fallback data for services that fail
 - **OIDC authentication** - Built-in OIDC client credentials flow support
 - **Cookie handling** - Automatic Set-Cookie extraction and cookie management
@@ -40,7 +40,7 @@ const result = await runOrchestration(
         url: 'https://api.example.com/posts',
         method: 'GET',
         query: {
-          userId: '$fetchUser.body.id',
+          userId: '{$fetchUser.body.id}',
         },
       },
     },
@@ -137,14 +137,14 @@ interface OrchestrationResult {
 
 ## Variable Interpolation
 
-Reference any value from the orchestration context using `$<contextKey>.path` syntax.
+Reference any value from the orchestration context using `{$<contextKey>.path}` syntax with curly braces.
 
-The context key can be any root-level property in the context object.
+The context key can be any root-level property in the context object. Supports text before, after, and between tokens.
 
 ### Syntax
 
 ```typescript
-$<contextKey>.path.to.value
+{$<contextKey>.path.to.value}
 ```
 
 ### Examples
@@ -153,10 +153,10 @@ $<contextKey>.path.to.value
 {
   service: {
     body: {
-      userId: '$service01.body.id',
-      email: '$request.body.email',
-      apiKey: '$env.API_KEY',
-      customField: '$customData.token',
+      userId: '{$service01.body.id}',
+      email: '{$request.body.email}',
+      apiKey: '{$env.API_KEY}',
+      customField: '{$customData.token}',
     },
   },
 }
@@ -170,8 +170,24 @@ For keys with special characters (dots, colons, dashes):
 {
   service: {
     body: {
-      customField: "$serviceId.body['custom:field']",
-      anotherField: '$serviceId.body["field-with-dash"]',
+      customField: "{$serviceId.body['custom:field']}",
+      anotherField: '{$serviceId.body["field-with-dash"]}',
+    },
+  },
+}
+```
+
+### Text Before, After, and Between Tokens
+
+You can combine tokens with text in the same string:
+
+```typescript
+{
+  service: {
+    url: '{$env.HOST}/api/{$request.id}',
+    body: {
+      fullUrl: 'https://{$env.HOST}:{$env.PORT}/api/{$request.id}',
+      prefixedId: 'user_{$request.body.userId}',
     },
   },
 }
@@ -202,7 +218,7 @@ const result = await runOrchestration(
         url: 'https://api.example.com/profile',
         method: 'GET',
         headers: {
-          authorization: '$authenticate.body.token',
+          authorization: '{$authenticate.body.token}',
         },
       },
     },
@@ -236,7 +252,7 @@ const result = await runOrchestration(
       service: {
         url: 'https://api.example.com/posts',
         method: 'GET',
-        query: { userId: '$getUser.body.id' },
+        query: { userId: '{$getUser.body.id}' },
       },
     },
     {
@@ -245,7 +261,7 @@ const result = await runOrchestration(
       service: {
         url: 'https://api.example.com/comments',
         method: 'GET',
-        query: { userId: '$getUser.body.id' },
+        query: { userId: '{$getUser.body.id}' },
       },
     },
     {
@@ -255,8 +271,8 @@ const result = await runOrchestration(
         url: 'https://aggregation.example.com/combine',
         method: 'POST',
         body: {
-          posts: '$getPosts.body',
-          comments: '$getComments.body',
+          posts: '{$getPosts.body}',
+          comments: '{$getComments.body}',
         },
       },
     },
@@ -291,6 +307,62 @@ const result = await runOrchestration(
 - **Undici** - High-performance HTTP client (included as dependency)
 - **async-flow-orchestrator** - Dependency orchestration engine
 - **undici-oidc-interceptor** - Optional, for OIDC authentication support
+
+## Diagnostics and Monitoring
+
+The engine emits Node.js diagnostic channel events for service lifecycle events, enabling monitoring and debugging without modifying your code.
+
+### Diagnostic Channels
+
+Three diagnostic channels are available for subscription:
+
+- `workflow:service:start` - Emitted when a service execution begins
+- `workflow:service:complete` - Emitted when a service execution completes successfully
+- `workflow:service:error` - Emitted when a service execution fails
+
+### Example: Monitoring Service Execution
+
+```typescript
+import { diagnosticsChannel } from 'node:diagnostics_channel';
+
+// Subscribe to service start events
+const startChannel = diagnosticsChannel.channel('workflow:service:start');
+startChannel.subscribe((message) => {
+  console.log(`Service ${message.serviceId} starting...`);
+  console.log(`URL: ${message.request.url}`);
+  console.log(`Method: ${message.request.method}`);
+});
+
+// Subscribe to service completion events
+const completeChannel = diagnosticsChannel.channel('workflow:service:complete');
+completeChannel.subscribe((message) => {
+  console.log(`Service ${message.serviceId} completed`);
+  console.log(`Status: ${message.status}`);
+  console.log(`Processing time: ${message.processingTime}ms`);
+  if (message.fallbackUsed) {
+    console.log('(Fallback was used)');
+  }
+});
+
+// Subscribe to service error events
+const errorChannel = diagnosticsChannel.channel('workflow:service:error');
+errorChannel.subscribe((message) => {
+  console.log(`Service ${message.serviceId} failed`);
+  console.log(`Error: ${message.error.message}`);
+  console.log(`Processing time: ${message.processingTime}ms`);
+});
+```
+
+### Diagnostic Message Format
+
+All diagnostic messages include:
+- `serviceId` - The unique service identifier
+- `request` - Request details (url, method, headers, body, query)
+- `timestamp` - When the event occurred (milliseconds since epoch)
+- `processingTime` - How long the service took to execute (for complete/error events)
+- `status` - HTTP status code (complete events only, null if fallback used)
+- `fallbackUsed` - Whether a fallback response was used (complete events only)
+- `error` - Error details including message and code (error events only)
 
 ## Running Tests
 

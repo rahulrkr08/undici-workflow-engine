@@ -62,6 +62,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `cookiesToHeader(cookies)` - Converts cookies object to "Cookie" header string
 - `buildQueryString(query)` - Converts query object to URL search params
 
+**5. diagnostics.ts** - Diagnostic channel events
+- `channels.start` - Emitted when service execution begins
+- `channels.complete` - Emitted when service execution completes successfully
+- `channels.error` - Emitted when service execution fails
+- `emitServiceStart(serviceId, config, context)` - Emit service start event
+- `emitServiceComplete(serviceId, config, context, processingTime, status, fallbackUsed)` - Emit completion event
+- `emitServiceError(serviceId, config, context, processingTime, error)` - Emit error event
+
 ### Variable Interpolation Syntax
 
 Tokens are wrapped in curly braces: `{$<contextKey>.path.to.value}`
@@ -167,7 +175,7 @@ Services are executed in dependency order using async-flow-orchestrator:
 
 - Configured per-service in `ServiceConfig.oidc`
 - Properties: `clientId`, `clientSecret`, `scope`, `tokenUrl`
-- All values support interpolation: `clientId: '$env.OIDC_CLIENT_ID'`
+- All values support interpolation: `clientId: '{$env.OIDC_CLIENT_ID}'`
 - Automatically handled via `undici-oidc-interceptor` decorator
 - Token stored in response headers as `Authorization: Bearer <token>`
 - Fully type-safe with TestOIDCProvider for testing
@@ -233,7 +241,7 @@ Current coverage: **98.32%** (all functions at 100%)
 
 1. Check error message for which test failed
 2. Look at test file to understand what's being tested
-3. For interpolation issues, verify `$contextKey.path` syntax is correct
+3. For interpolation issues, verify `{$contextKey.path}` syntax with curly braces is correct
 4. For execution order issues, check `dependsOn` array and dependencies
 5. Use console.log in test to debug (visible in test output)
 
@@ -265,8 +273,8 @@ Pattern matching uses curly braces: `{$<contextKey>.path}`
     url: 'https://api.example.com/protected',
     method: 'GET',
     oidc: {
-      clientId: '$env.OIDC_CLIENT_ID',
-      clientSecret: '$env.OIDC_CLIENT_SECRET',
+      clientId: '{$env.OIDC_CLIENT_ID}',
+      clientSecret: '{$env.OIDC_CLIENT_SECRET}',
       scope: 'openid profile email',
       tokenUrl: 'https://auth.example.com/token',
     },
@@ -274,7 +282,42 @@ Pattern matching uses curly braces: `{$<contextKey>.path}`
 }
 ```
 
-All OIDC properties support interpolation.
+All OIDC properties support interpolation using the `{$<contextKey>.path}` syntax.
+
+### Monitoring with Diagnostic Channels
+
+To monitor service execution, subscribe to diagnostic channels:
+
+```typescript
+import { diagnosticsChannel } from 'node:diagnostics_channel';
+
+// Monitor service start events
+const startChannel = diagnosticsChannel.channel('workflow:service:start');
+startChannel.subscribe((message) => {
+  console.log(`Service ${message.serviceId} starting...`);
+  console.log(`  URL: ${message.request.url}`);
+  console.log(`  Method: ${message.request.method}`);
+});
+
+// Monitor service completion events
+const completeChannel = diagnosticsChannel.channel('workflow:service:complete');
+completeChannel.subscribe((message) => {
+  console.log(`Service ${message.serviceId} completed in ${message.processingTime}ms`);
+  console.log(`  Status: ${message.status}`);
+  if (message.fallbackUsed) {
+    console.log('  (Using fallback response)');
+  }
+});
+
+// Monitor service error events
+const errorChannel = diagnosticsChannel.channel('workflow:service:error');
+errorChannel.subscribe((message) => {
+  console.error(`Service ${message.serviceId} failed after ${message.processingTime}ms`);
+  console.error(`  Error: ${message.error.message}`);
+});
+```
+
+The diagnostic channels are emitted in [diagnostics.ts](src/diagnostics.ts) and provide detailed insight into service execution without modifying application code.
 
 ## Key Files to Know
 
@@ -282,6 +325,7 @@ All OIDC properties support interpolation.
 - `src/orchestrator.ts` - Main entry point (`runOrchestration`)
 - `src/executor.ts` - HTTP request execution and response handling
 - `src/interpolation.ts` - Context variable resolution
+- `src/diagnostics.ts` - Diagnostic channel events for monitoring
 - `tests/helpers.ts` - MockServer class for test mocking
 - `package.json` - Dependencies and scripts
 - `tsconfig.json` - TypeScript configuration (strict mode enabled)
