@@ -19,7 +19,6 @@ jobs:
     permissions:
       contents: write
       id-token: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -30,8 +29,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 22
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
@@ -42,8 +40,8 @@ jobs:
 
       - name: Configure git
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "Rahul Radhakrishnan"
+          git config --global user.email "rahulrkr@hotmail.com"
 
       - name: Bump version
         id: version
@@ -55,6 +53,11 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - run: npm install -g npm@latest
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+      
       - name: Commit version bump
         run: |
           git add package.json package-lock.json
@@ -63,11 +66,6 @@ jobs:
       - name: Create git tag
         run: |
           git tag ${{ steps.version.outputs.new_version }}
-
-      - name: Publish to npm
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Push changes and tags
         run: |

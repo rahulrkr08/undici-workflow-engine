@@ -1,6 +1,6 @@
 {
   "name": "undici-workflow-engine",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A workflow engine that orchestrates HTTP services using Undici.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -53,9 +53,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/undici-workflow-engine.git"
+    "url": "git+https://github.com/rahulrkr08/undici-workflow-engine.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/undici-workflow-engine/issues"
-  }
+    "url": "https://github.com/rahulrkr08/undici-workflow-engine/issues"
+  },
+  "homepage": "https://github.com/rahulrkr08/undici-workflow-engine#readme"
 }
