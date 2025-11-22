@@ -61,7 +61,7 @@ export async function runOrchestration(
       } else if (status === 'skipped' && serviceBlock.service.fallback) {
         // For skipped services, include fallback data if defined
         servicesMap[serviceBlock.id] = {
-          status: null,
+          status: serviceBlock.service.fallback.status || null,
           body: serviceBlock.service.fallback.data,
           metadata: {
             executionStatus: 'skipped',

@@ -7,6 +7,7 @@ export interface ServiceConfig {
   body?: any;
   timeout?: number;
   fallback?: {
+    status?: number | null;
     data: any;
   };
   oidc?: {
