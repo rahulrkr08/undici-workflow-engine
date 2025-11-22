@@ -267,3 +267,104 @@ test('Condition: multiple services with conditions - some skipped, some executed
   assert.ok(result.services.sometimesRun);
   assert.strictEqual(result.services.sometimesRun.status, 200);
 });
+
+test('Condition: skipped service with fallback should include fallback data', async () => {
+  const services: ServiceBlock[] = [
+    {
+      id: 'protectedService',
+      condition: () => false,
+      service: {
+        url: 'https://example.com/protected',
+        method: 'GET',
+        fallback: {
+          data: { defaultMessage: 'Service skipped, using fallback' },
+        },
+      },
+    },
+  ];
+
+  const context: OrchestrationContext = {
+    request: {},
+    env: {},
+  };
+
+  const result = await runOrchestration(services, context);
+
+  // Service should be skipped but fallback data should be included
+  assert.ok(result.services.protectedService);
+  assert.strictEqual(result.services.protectedService.status, null);
+  assert.deepStrictEqual(result.services.protectedService.body, {
+    defaultMessage: 'Service skipped, using fallback',
+  });
+  assert.strictEqual(result.services.protectedService.fallbackUsed, true);
+});
+
+test('Condition: skipped service without fallback should not be included', async () => {
+  const services: ServiceBlock[] = [
+    {
+      id: 'skippedService',
+      condition: () => false,
+      service: {
+        url: 'https://example.com/skipped',
+        method: 'GET',
+      },
+    },
+  ];
+
+  const context: OrchestrationContext = {
+    request: {},
+    env: {},
+  };
+
+  const result = await runOrchestration(services, context);
+
+  // Service should be skipped and not in results (no fallback defined)
+  assert.strictEqual(result.services.skippedService, undefined);
+});
+
+test('Condition: dependent service skipped with fallback includes fallback data', async () => {
+  const userMock = mockAgent.get('https://example8.com');
+  userMock.intercept({ path: '/auth', method: 'POST' })
+    .reply(200, { isAdmin: false });
+
+  const services: ServiceBlock[] = [
+    {
+      id: 'auth',
+      service: {
+        url: 'https://example8.com/auth',
+        method: 'POST',
+      },
+    },
+    {
+      id: 'adminPanel',
+      dependsOn: ['auth'],
+      condition: (context: any) => {
+        const auth = context.getAll().auth;
+        return auth?.body?.isAdmin === true;
+      },
+      service: {
+        url: 'https://example8.com/admin',
+        method: 'GET',
+        fallback: {
+          data: { message: 'Admin access denied, using default dashboard' },
+        },
+      },
+    },
+  ];
+
+  const context: OrchestrationContext = {
+    request: {},
+    env: {},
+  };
+
+  const result = await runOrchestration(services, context);
+
+  assert.strictEqual(result.services.auth.status, 200);
+  // adminPanel should be skipped but fallback data should be included
+  assert.ok(result.services.adminPanel);
+  assert.strictEqual(result.services.adminPanel.status, null);
+  assert.deepStrictEqual(result.services.adminPanel.body, {
+    message: 'Admin access denied, using default dashboard',
+  });
+  assert.strictEqual(result.services.adminPanel.fallbackUsed, true);
+});

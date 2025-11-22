@@ -56,9 +56,15 @@ export async function runOrchestration(
       const data = workflowResult.data[serviceBlock.id];
 
       // Include all services that were executed (completed, failed)
-      // Skip services that were skipped due to conditions
       if (status === 'completed' || status === 'failed') {
         servicesMap[serviceBlock.id] = data as ServiceResult;
+      } else if (status === 'skipped' && serviceBlock.service.fallback) {
+        // For skipped services, include fallback data if defined
+        servicesMap[serviceBlock.id] = {
+          status: null,
+          body: serviceBlock.service.fallback.data,
+          fallbackUsed: true,
+        };
       }
     }
 
