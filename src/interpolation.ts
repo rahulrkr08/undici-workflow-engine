@@ -24,7 +24,7 @@ export function interpolateValue(
   }
 
   // Match {$<contextKey>.path.to.value} pattern and process each token
-  return value.replace(/\{\$([a-zA-Z0-9_]+)([^}]*)\}/g, (match, contextKey, pathWithDot) => {
+  return value.replace(/\{\$([a-zA-Z0-9_-]+)([^}]*)\}/g, (match, contextKey, pathWithDot) => {
     // Remove leading dot from path if present
     const path = pathWithDot.startsWith('.') ? pathWithDot.slice(1) : pathWithDot;
 
@@ -71,7 +71,7 @@ export function interpolateObject(
 
   if (typeof obj === 'string') {
     // Check if this is a single complete interpolation token (no text before/after)
-    const singleTokenMatch = obj.match(/^\{\$([a-zA-Z0-9_]+)([^}]*)\}$/);
+    const singleTokenMatch = obj.match(/^\{\$([a-zA-Z0-9_-]+)([^}]*)\}$/);
     if (singleTokenMatch) {
       // This is a single token - resolve it and return with original type
       const [, contextKey, pathWithDot] = singleTokenMatch;
