@@ -5,6 +5,8 @@ A dependency-aware, declarative service orchestrator for orchestrating HTTP serv
 ## Features
 
 - **Dependency-based orchestration** - Define service dependencies and execute them in the correct order
+- **Conditional execution** - Skip services based on context using condition functions
+- **Error strategies** - Control how critical vs. optional service failures affect the workflow
 - **Variable interpolation** - Use `{$<contextKey>.path}` syntax to reference values from context
 - **Fallback responses** - Define fallback data for services that fail
 - **OIDC authentication** - Built-in OIDC client credentials flow support
@@ -72,11 +74,19 @@ Executes a workflow of orchestrated services.
 
 ```typescript
 interface ServiceBlock {
-  id: string;              // Unique service identifier
-  dependsOn?: string[];    // Service IDs this depends on
-  service: ServiceConfig;  // Service configuration
+  id: string;                              // Unique service identifier
+  dependsOn?: string[];                    // Service IDs this depends on
+  service: ServiceConfig;                  // Service configuration
+  condition?: (context: any) => boolean;   // Skip service if condition is false
+  errorStrategy?: 'silent' | 'throw';      // How to handle service errors
 }
 ```
+
+**Properties:**
+- `condition` - Optional function to determine if service should execute. Receives the workflow context and should return boolean. If false, service is skipped.
+- `errorStrategy` - How to handle errors:
+  - `'silent'` (default) - Service errors don't prevent dependent services from executing
+  - `'throw'` - Mark service as critical (for logging/monitoring purposes)
 
 ### ServiceConfig
 
@@ -298,6 +308,102 @@ const result = await runOrchestration(
     },
   ],
   { request: {} }
+);
+```
+
+### With Conditional Execution
+
+Skip services based on conditions:
+
+```typescript
+const result = await runOrchestration(
+  [
+    {
+      id: 'authenticate',
+      service: {
+        url: 'https://auth.example.com/login',
+        method: 'POST',
+        body: {
+          email: '{$request.body.email}',
+          password: '{$request.body.password}',
+        },
+      },
+    },
+    {
+      id: 'fetchAdminPanel',
+      dependsOn: ['authenticate'],
+      condition: (context) => {
+        const auth = context.getAll().authenticate;
+        return auth?.body?.role === 'admin';
+      },
+      service: {
+        url: 'https://api.example.com/admin',
+        method: 'GET',
+        headers: {
+          authorization: '{$authenticate.body.token}',
+        },
+      },
+    },
+    {
+      id: 'fetchUserProfile',
+      dependsOn: ['authenticate'],
+      service: {
+        url: 'https://api.example.com/profile',
+        method: 'GET',
+        headers: {
+          authorization: '{$authenticate.body.token}',
+        },
+      },
+    },
+  ],
+  {
+    request: {
+      body: {
+        email: 'user@example.com',
+        password: 'secret123',
+      },
+    },
+  }
+);
+```
+
+### With Error Strategies
+
+Handle critical vs. optional failures differently:
+
+```typescript
+const result = await runOrchestration(
+  [
+    {
+      id: 'validatePayment',
+      errorStrategy: 'throw', // Mark as critical
+      service: {
+        url: 'https://payment.example.com/validate',
+        method: 'POST',
+        body: { amount: '{$request.body.amount}' },
+      },
+    },
+    {
+      id: 'processPayment',
+      dependsOn: ['validatePayment'],
+      service: {
+        url: 'https://payment.example.com/process',
+        method: 'POST',
+        body: { token: '{$validatePayment.body.token}' },
+      },
+    },
+    {
+      id: 'sendNotification',
+      errorStrategy: 'silent', // Optional - don't block workflow
+      service: {
+        url: 'https://notifications.example.com/send',
+        method: 'POST',
+        body: { message: 'Payment processed' },
+        fallback: { data: { status: 'skipped' } },
+      },
+    },
+  ],
+  { request: { body: { amount: 100 } } }
 );
 ```
 
