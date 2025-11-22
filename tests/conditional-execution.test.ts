@@ -296,7 +296,7 @@ test('Condition: skipped service with fallback should include fallback data', as
   assert.deepStrictEqual(result.services.protectedService.body, {
     defaultMessage: 'Service skipped, using fallback',
   });
-  assert.strictEqual(result.services.protectedService.fallbackUsed, true);
+  assert.strictEqual(result.services.protectedService.metadata?.fallbackUsed, true);
 });
 
 test('Condition: skipped service without fallback should not be included', async () => {
@@ -366,5 +366,87 @@ test('Condition: dependent service skipped with fallback includes fallback data'
   assert.deepStrictEqual(result.services.adminPanel.body, {
     message: 'Admin access denied, using default dashboard',
   });
-  assert.strictEqual(result.services.adminPanel.fallbackUsed, true);
+  assert.strictEqual(result.services.adminPanel.metadata?.fallbackUsed, true);
+});
+
+test('Execution Status: executed service should have executionStatus set to "executed"', async () => {
+  const userMock = mockAgent.get('https://example9.com');
+  userMock.intercept({ path: '/data', method: 'GET' })
+    .reply(200, { result: 'success' });
+
+  const services: ServiceBlock[] = [
+    {
+      id: 'getData',
+      service: {
+        url: 'https://example9.com/data',
+        method: 'GET',
+      },
+    },
+  ];
+
+  const context: OrchestrationContext = {
+    request: {},
+    env: {},
+  };
+
+  const result = await runOrchestration(services, context);
+
+  assert.strictEqual(result.services.getData.metadata?.executionStatus, 'executed');
+  assert.strictEqual(result.services.getData.status, 200);
+});
+
+test('Execution Status: skipped service with fallback should have executionStatus set to "skipped"', async () => {
+  const services: ServiceBlock[] = [
+    {
+      id: 'conditionalService',
+      condition: () => false,
+      service: {
+        url: 'https://example.com/api',
+        method: 'GET',
+        fallback: {
+          data: { default: 'fallback' },
+        },
+      },
+    },
+  ];
+
+  const context: OrchestrationContext = {
+    request: {},
+    env: {},
+  };
+
+  const result = await runOrchestration(services, context);
+
+  assert.strictEqual(result.services.conditionalService.metadata?.executionStatus, 'skipped');
+  assert.strictEqual(result.services.conditionalService.status, null);
+  assert.strictEqual(result.services.conditionalService.metadata?.fallbackUsed, true);
+});
+
+test('Execution Status: failed service with fallback should have executionStatus set to "failed"', async () => {
+  // Test a service that fails due to network error (not HTTP error status)
+  // We'll use an invalid URL that causes a connection error
+  const services: ServiceBlock[] = [
+    {
+      id: 'failService',
+      service: {
+        url: 'https://invalid-domain-that-does-not-exist-12345.test/api',
+        method: 'GET',
+        timeout: 100, // Short timeout to fail quickly
+        fallback: {
+          data: { message: 'Service failed, using fallback' },
+        },
+      },
+    },
+  ];
+
+  const context: OrchestrationContext = {
+    request: {},
+    env: {},
+  };
+
+  const result = await runOrchestration(services, context);
+
+  assert.strictEqual(result.services.failService.metadata?.executionStatus, 'failed');
+  assert.strictEqual(result.services.failService.status, null);
+  assert.strictEqual(result.services.failService.metadata?.fallbackUsed, true);
 });

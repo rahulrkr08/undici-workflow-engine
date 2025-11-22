@@ -63,7 +63,10 @@ export async function runOrchestration(
         servicesMap[serviceBlock.id] = {
           status: null,
           body: serviceBlock.service.fallback.data,
-          fallbackUsed: true,
+          metadata: {
+            executionStatus: 'skipped',
+            fallbackUsed: true,
+          },
         };
       }
     }
