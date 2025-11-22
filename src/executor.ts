@@ -141,7 +141,7 @@ export async function executeService(
     // If fallback is configured, return it
     if (config.fallback) {
       return {
-        status: null,
+        status: config.fallback.status || null,
         body: config.fallback.data,
         metadata: {
           executionStatus: 'failed',
