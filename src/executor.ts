@@ -128,6 +128,9 @@ export async function executeService(
       body: parsedBody,
       headers: responseHeaders,
       cookies: responseCookies,
+      metadata: {
+        executionStatus: 'executed',
+      },
     };
   } catch (error: any) {
     const processingTime = Date.now() - startTime;
@@ -140,7 +143,10 @@ export async function executeService(
       return {
         status: null,
         body: config.fallback.data,
-        fallbackUsed: true,
+        metadata: {
+          executionStatus: 'failed',
+          fallbackUsed: true,
+        },
       };
     }
 
@@ -151,6 +157,9 @@ export async function executeService(
       error: {
         message: error.message,
         code: error.code,
+      },
+      metadata: {
+        executionStatus: 'failed',
       },
     };
   }

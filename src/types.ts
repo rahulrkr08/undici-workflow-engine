@@ -42,13 +42,18 @@ export interface OrchestrationContext {
   [serviceId: string]: any;
 }
 
+export interface ServiceResultMetadata {
+  executionStatus?: 'executed' | 'skipped' | 'failed';
+  fallbackUsed?: boolean;
+}
+
 export interface ServiceResult {
   status: number | null;
   body: any;
   headers?: Record<string, string>;
   cookies?: Record<string, string>;
   error?: any;
-  fallbackUsed?: boolean;
+  metadata?: ServiceResultMetadata;
 }
 
 export interface OrchestrationResult {

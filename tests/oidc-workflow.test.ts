@@ -617,7 +617,7 @@ test('OIDC Workflow - Error Handling with OIDC', async (t) => {
 
     // Should either use fallback or return error
     assert.ok(
-      result.fallbackUsed || result.status !== 200 || result.error
+      result.metadata?.fallbackUsed || result.status !== 200 || result.error
     );
   });
 

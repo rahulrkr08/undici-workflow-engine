@@ -291,7 +291,7 @@ test('Executor - Error Handling', async (t) => {
     const result = await executeService(config);
 
     // Should return fallback
-    assert.ok(result.fallbackUsed === true || result.body?.status === 'fallback_used');
+    assert.ok(result.metadata?.fallbackUsed === true || result.body?.status === 'fallback_used');
   });
 
   await t.test('should return error when no fallback and request fails', async () => {
