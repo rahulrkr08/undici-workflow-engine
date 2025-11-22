@@ -37,7 +37,8 @@ export async function runOrchestration(
       );
       return result;
     },
-    errorStrategy: 'silent' as const, // Continue on error (fallback handles it)
+    condition: serviceBlock.condition,
+    errorStrategy: serviceBlock.errorStrategy || 'silent', // Default to 'silent' for backward compatibility
   }));
 
   try {
@@ -48,17 +49,22 @@ export async function runOrchestration(
     });
 
     // Extract service results from workflow data
-    const servicesKeys = Object.keys(workflowResult.metadata.states);
-    const services: Record<string, ServiceResult> = Object.keys(workflowResult.data).reduce((acc, key) => {
-      if (servicesKeys.includes(key)) {
-        acc[key] = workflowResult.data[key] as ServiceResult;
+    const servicesMap: Record<string, ServiceResult> = {};
+
+    for (const serviceBlock of services) {
+      const status = workflowResult.metadata.states[serviceBlock.id];
+      const data = workflowResult.data[serviceBlock.id];
+
+      // Include all services that were executed (completed, failed)
+      // Skip services that were skipped due to conditions
+      if (status === 'completed' || status === 'failed') {
+        servicesMap[serviceBlock.id] = data as ServiceResult;
       }
-      return acc;
-    }, {} as Record<string, ServiceResult>);
+    }
 
     return {
       context,
-      services,
+      services: servicesMap,
     };
   } catch (error: any) {
     return { context, services: {}, };

@@ -15,12 +15,15 @@ export interface ServiceConfig {
     scope?: string;
     tokenUrl?: string;
   };
+  errorStrategy?: 'silent' | 'throw';
 }
 
 export interface ServiceBlock {
   id: string;
   dependsOn?: string[];
   service: ServiceConfig;
+  condition?: (context: any) => boolean; // Context from async-flow-orchestrator (has getAll() method)
+  errorStrategy?: 'silent' | 'throw';
 }
 
 export interface OrchestrationConfig {
