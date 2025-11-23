@@ -236,3 +236,17 @@ export function delayedHandler(delayMs: number, data: any = { success: true }) {
     }, delayMs);
   };
 }
+
+/**
+ * Create a handler that returns binary media (image/png, etc.)
+ */
+export function binaryMediaHandler(
+  contentType: string,
+  buffer: Buffer,
+  statusCode: number = 200,
+) {
+  return (req: IncomingMessage, res: ServerResponse) => {
+    res.writeHead(statusCode, { 'content-type': contentType });
+    res.end(buffer);
+  };
+}

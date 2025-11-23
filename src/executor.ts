@@ -87,11 +87,27 @@ export async function executeService(
     // Parse response body
     let parsedBody: any;
     const contentType = response.headers['content-type'];
+    const mediaType = typeof contentType === 'string' ? contentType.split(';')[0].trim() : '';
 
-    if (typeof contentType === 'string' && contentType.includes('application/json')) {
+    // Determine if response is binary media (image, video, audio, etc.)
+    const binaryMediaTypes = [
+      'image/',
+      'video/',
+      'audio/',
+      'application/octet-stream',
+      'application/pdf',
+      'application/zip',
+      'application/gzip',
+    ];
+    const isBinaryMedia = binaryMediaTypes.some((type) => mediaType.startsWith(type));
+
+    if (mediaType.includes('application/json')) {
       const text = await response.body.text();
       parsedBody = text ? JSON.parse(text) : null;
+    } else if (isBinaryMedia) {
+      parsedBody = Buffer.from(await response.body.arrayBuffer());
     } else {
+      // For text-based responses (plain text, html, xml, etc.)
       parsedBody = await response.body.text();
     }
 
