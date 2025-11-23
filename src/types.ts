@@ -46,7 +46,6 @@ export interface OrchestrationContext {
 export interface ServiceResultMetadata {
   executionStatus?: 'executed' | 'skipped' | 'failed';
   fallbackUsed?: boolean;
-  contentType?: string;
 }
 
 export interface ServiceResult {

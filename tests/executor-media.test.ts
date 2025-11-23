@@ -5,7 +5,7 @@ import type { ServiceConfig } from '../src/types.js';
 import { MockServer, binaryMediaHandler, jsonHandler } from './helpers.js';
 
 test('Executor - Binary Media Handling', async (t) => {
-  await t.test('should handle image/png responses as base64', async () => {
+  await t.test('should handle image/png responses as Buffer', async () => {
     // Create a simple PNG buffer (1x1 transparent pixel)
     const pngBuffer = Buffer.from([
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
@@ -16,7 +16,7 @@ test('Executor - Binary Media Handling', async (t) => {
     ]);
 
     const server = new MockServer(binaryMediaHandler('image/png', pngBuffer));
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -27,20 +27,17 @@ test('Executor - Binary Media Handling', async (t) => {
     const result = await executeService(config);
 
     assert.strictEqual(result.status, 200);
-    // Body should be base64 encoded
-    assert.strictEqual(typeof result.body, 'string');
-    // Verify it's valid base64
-    const decoded = Buffer.from(result.body, 'base64');
-    assert.deepStrictEqual(decoded, pngBuffer);
-    // Verify metadata includes content-type
-    assert.strictEqual(result.metadata?.contentType, 'image/png');
+    // Body should be a Buffer
+    assert.strictEqual(Buffer.isBuffer(result.body), true);
+    // Verify it matches original buffer
+    assert.deepStrictEqual(result.body, pngBuffer);
   });
 
-  await t.test('should handle image/jpeg responses as base64', async () => {
+  await t.test('should handle image/jpeg responses as Buffer', async () => {
     const jpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
 
     const server = new MockServer(binaryMediaHandler('image/jpeg', jpegBuffer));
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -51,17 +48,15 @@ test('Executor - Binary Media Handling', async (t) => {
     const result = await executeService(config);
 
     assert.strictEqual(result.status, 200);
-    assert.strictEqual(typeof result.body, 'string');
-    const decoded = Buffer.from(result.body, 'base64');
-    assert.deepStrictEqual(decoded, jpegBuffer);
-    assert.strictEqual(result.metadata?.contentType, 'image/jpeg');
+    assert.strictEqual(Buffer.isBuffer(result.body), true);
+    assert.deepStrictEqual(result.body, jpegBuffer);
   });
 
-  await t.test('should handle image/svg+xml responses as base64', async () => {
+  await t.test('should handle image/svg+xml responses as Buffer', async () => {
     const svgBuffer = Buffer.from('<svg></svg>');
 
     const server = new MockServer(binaryMediaHandler('image/svg+xml', svgBuffer));
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -72,17 +67,15 @@ test('Executor - Binary Media Handling', async (t) => {
     const result = await executeService(config);
 
     assert.strictEqual(result.status, 200);
-    assert.strictEqual(typeof result.body, 'string');
-    const decoded = Buffer.from(result.body, 'base64');
-    assert.deepStrictEqual(decoded, svgBuffer);
-    assert.strictEqual(result.metadata?.contentType, 'image/svg+xml');
+    assert.strictEqual(Buffer.isBuffer(result.body), true);
+    assert.deepStrictEqual(result.body, svgBuffer);
   });
 
-  await t.test('should handle application/pdf responses as base64', async () => {
+  await t.test('should handle application/pdf responses as Buffer', async () => {
     const pdfBuffer = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF header
 
     const server = new MockServer(binaryMediaHandler('application/pdf', pdfBuffer));
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -93,17 +86,15 @@ test('Executor - Binary Media Handling', async (t) => {
     const result = await executeService(config);
 
     assert.strictEqual(result.status, 200);
-    assert.strictEqual(typeof result.body, 'string');
-    const decoded = Buffer.from(result.body, 'base64');
-    assert.deepStrictEqual(decoded, pdfBuffer);
-    assert.strictEqual(result.metadata?.contentType, 'application/pdf');
+    assert.strictEqual(Buffer.isBuffer(result.body), true);
+    assert.deepStrictEqual(result.body, pdfBuffer);
   });
 
-  await t.test('should handle video/mp4 responses as base64', async () => {
+  await t.test('should handle video/mp4 responses as Buffer', async () => {
     const videoBuffer = Buffer.from([0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70]); // MP4 header
 
     const server = new MockServer(binaryMediaHandler('video/mp4', videoBuffer));
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -114,17 +105,15 @@ test('Executor - Binary Media Handling', async (t) => {
     const result = await executeService(config);
 
     assert.strictEqual(result.status, 200);
-    assert.strictEqual(typeof result.body, 'string');
-    const decoded = Buffer.from(result.body, 'base64');
-    assert.deepStrictEqual(decoded, videoBuffer);
-    assert.strictEqual(result.metadata?.contentType, 'video/mp4');
+    assert.strictEqual(Buffer.isBuffer(result.body), true);
+    assert.deepStrictEqual(result.body, videoBuffer);
   });
 
-  await t.test('should handle audio/mpeg responses as base64', async () => {
+  await t.test('should handle audio/mpeg responses as Buffer', async () => {
     const audioBuffer = Buffer.from([0xff, 0xfb]); // MP3 header
 
     const server = new MockServer(binaryMediaHandler('audio/mpeg', audioBuffer));
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -135,19 +124,17 @@ test('Executor - Binary Media Handling', async (t) => {
     const result = await executeService(config);
 
     assert.strictEqual(result.status, 200);
-    assert.strictEqual(typeof result.body, 'string');
-    const decoded = Buffer.from(result.body, 'base64');
-    assert.deepStrictEqual(decoded, audioBuffer);
-    assert.strictEqual(result.metadata?.contentType, 'audio/mpeg');
+    assert.strictEqual(Buffer.isBuffer(result.body), true);
+    assert.deepStrictEqual(result.body, audioBuffer);
   });
 
-  await t.test('should handle application/octet-stream responses as base64', async () => {
+  await t.test('should handle application/octet-stream responses as Buffer', async () => {
     const binaryBuffer = Buffer.from([0x00, 0x01, 0x02, 0x03]);
 
     const server = new MockServer(
       binaryMediaHandler('application/octet-stream', binaryBuffer),
     );
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -158,17 +145,15 @@ test('Executor - Binary Media Handling', async (t) => {
     const result = await executeService(config);
 
     assert.strictEqual(result.status, 200);
-    assert.strictEqual(typeof result.body, 'string');
-    const decoded = Buffer.from(result.body, 'base64');
-    assert.deepStrictEqual(decoded, binaryBuffer);
-    assert.strictEqual(result.metadata?.contentType, 'application/octet-stream');
+    assert.strictEqual(Buffer.isBuffer(result.body), true);
+    assert.deepStrictEqual(result.body, binaryBuffer);
   });
 
   await t.test('should handle content-type with charset parameter', async () => {
     const pngBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
     const server = new MockServer(binaryMediaHandler('image/png; charset=utf-8', pngBuffer));
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -179,18 +164,16 @@ test('Executor - Binary Media Handling', async (t) => {
     const result = await executeService(config);
 
     assert.strictEqual(result.status, 200);
-    assert.strictEqual(typeof result.body, 'string');
-    const decoded = Buffer.from(result.body, 'base64');
-    assert.deepStrictEqual(decoded, pngBuffer);
-    assert.strictEqual(result.metadata?.contentType, 'image/png; charset=utf-8');
+    assert.strictEqual(Buffer.isBuffer(result.body), true);
+    assert.deepStrictEqual(result.body, pngBuffer);
   });
 
   await t.test('should handle text/plain responses as text', async () => {
-    const server = new MockServer((req, res) => {
+    const server = new MockServer((_req, res) => {
       res.writeHead(200, { 'content-type': 'text/plain' });
       res.end('Hello, World!');
     });
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -202,12 +185,11 @@ test('Executor - Binary Media Handling', async (t) => {
 
     assert.strictEqual(result.status, 200);
     assert.strictEqual(result.body, 'Hello, World!');
-    assert.strictEqual(result.metadata?.contentType, 'text/plain');
   });
 
   await t.test('should still handle application/json correctly', async () => {
     const server = new MockServer(jsonHandler({ id: 1, name: 'test' }));
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -219,15 +201,14 @@ test('Executor - Binary Media Handling', async (t) => {
 
     assert.strictEqual(result.status, 200);
     assert.deepStrictEqual(result.body, { id: 1, name: 'test' });
-    assert.strictEqual(result.metadata?.contentType, 'application/json');
   });
 
   await t.test('should handle text/html responses as text', async () => {
-    const server = new MockServer((req, res) => {
+    const server = new MockServer((_req, res) => {
       res.writeHead(200, { 'content-type': 'text/html' });
       res.end('<html><body>Hello</body></html>');
     });
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -239,15 +220,14 @@ test('Executor - Binary Media Handling', async (t) => {
 
     assert.strictEqual(result.status, 200);
     assert.strictEqual(result.body, '<html><body>Hello</body></html>');
-    assert.strictEqual(result.metadata?.contentType, 'text/html');
   });
 
   await t.test('should handle application/xml responses as text', async () => {
-    const server = new MockServer((req, res) => {
+    const server = new MockServer((_req, res) => {
       res.writeHead(200, { 'content-type': 'application/xml' });
       res.end('<root><item>test</item></root>');
     });
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -259,15 +239,14 @@ test('Executor - Binary Media Handling', async (t) => {
 
     assert.strictEqual(result.status, 200);
     assert.strictEqual(result.body, '<root><item>test</item></root>');
-    assert.strictEqual(result.metadata?.contentType, 'application/xml');
   });
 
   await t.test('should handle missing content-type header', async () => {
-    const server = new MockServer((req, res) => {
+    const server = new MockServer((_req, res) => {
       res.writeHead(200, {});
       res.end('Hello, World!');
     });
-    const url = await server.listen();
+    await server.listen();
     t.after(() => server.close());
 
     const config: ServiceConfig = {
@@ -279,6 +258,5 @@ test('Executor - Binary Media Handling', async (t) => {
 
     assert.strictEqual(result.status, 200);
     assert.strictEqual(result.body, 'Hello, World!');
-    assert.strictEqual(result.metadata?.contentType, undefined);
   });
 });
