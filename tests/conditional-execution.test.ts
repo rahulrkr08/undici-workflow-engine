@@ -450,3 +450,41 @@ test('Execution Status: failed service with fallback should have executionStatus
   assert.strictEqual(result.services.failService.status, null);
   assert.strictEqual(result.services.failService.metadata?.fallbackUsed, true);
 });
+
+test('Execution Status: first service fails, second service should be pending', async () => {
+  const services: ServiceBlock[] = [
+    {
+      id: 'failingService',
+      errorStrategy: 'throw',
+      service: {
+        url: 'https://invalid-domain-that-does-not-exist-12345.test/api',
+        method: 'GET',
+        timeout: 100, // Short timeout to fail quickly
+      },
+    },
+    {
+      id: 'service2',
+      dependsOn: ['failingService'],
+      service: {
+        url: 'https://example10.com/service2',
+        method: 'GET',
+      },
+    },
+  ];
+
+  const context: OrchestrationContext = {
+    request: {},
+    env: {},
+  };
+
+  const result = await runOrchestration(services, context);
+  console.log(JSON.stringify(result, null, 2));
+  // First service should fail
+  assert.strictEqual(result.services.failingService.metadata?.executionStatus, 'failed');
+  assert.strictEqual(result.services.failingService.status, null);
+
+  // Second service should be pending (not executed because dependency failed with errorStrategy: 'throw')
+  assert.ok(result.services.service2);
+  assert.strictEqual(result.services.service2.metadata?.executionStatus, 'pending');
+  assert.strictEqual(result.services.service2.status, null);
+});
