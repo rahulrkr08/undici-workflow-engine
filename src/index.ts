@@ -6,7 +6,6 @@ export { executeService } from './executor.js';
 
 // Utility functions
 export {
-  interpolateValueAsync,
   interpolateObject,
   cookiesToHeader,
   buildQueryString,

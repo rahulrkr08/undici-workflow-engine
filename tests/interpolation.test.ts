@@ -19,11 +19,11 @@ test('Interpolation - interpolateObject', async t => {
 
     const input = {
       headers: {
-        'x-api-key': '{$env.API_KEY}',
-        'x-user-id': '{$request.body.userId}',
+        'x-api-key': '{env.API_KEY}',
+        'x-user-id': '{request.body.userId}',
       },
       query: {
-        token: '{$service01.body.token}',
+        token: '{service01.body.token}',
       },
       data: 'plain string',
     };
@@ -45,7 +45,7 @@ test('Interpolation - interpolateObject', async t => {
       },
     };
 
-    const input = ['{$env.VALUE1}', '{$env.VALUE2}', 'plain'];
+    const input = ['{env.VALUE1}', '{env.VALUE2}', 'plain'];
     const result = await interpolateObject(input, context);
 
     assert.deepStrictEqual(result, ['first', 'second', 'plain']);
@@ -67,7 +67,7 @@ test('Interpolation - interpolateObject', async t => {
     const input = {
       data: {
         nested: {
-          items: '{$service01.body.items}',
+          items: '{service01.body.items}',
         },
       },
     };

@@ -13,9 +13,9 @@ test('JSONata Integration - Basic Path Resolution', async t => {
       },
     } as any;
 
-    assert.strictEqual(await interpolateObject('{$service.status}', context), 200);
-    assert.strictEqual(await interpolateObject('{$service.body.userId}', context), 123);
-    assert.strictEqual(await interpolateObject('{$service.body.name}', context), 'John');
+    assert.strictEqual(await interpolateObject('{service.status}', context), 200);
+    assert.strictEqual(await interpolateObject('{service.body.userId}', context), 123);
+    assert.strictEqual(await interpolateObject('{service.body.name}', context), 'John');
   });
 
   await t.test('should handle bracket notation with JSONata', async () => {
@@ -26,8 +26,8 @@ test('JSONata Integration - Basic Path Resolution', async t => {
       },
     } as any;
 
-    assert.strictEqual(await interpolateObject("{$service.body['custom:field']}", context), 'customValue');
-    assert.strictEqual(await interpolateObject('{$service.body["another-field"]}', context), 'anotherValue');
+    assert.strictEqual(await interpolateObject('{service.body."custom:field"}', context), 'customValue');
+    assert.strictEqual(await interpolateObject('{service.body."another-field"}', context), 'anotherValue');
   });
 
   await t.test('should handle array indices with JSONata', async () => {
@@ -38,9 +38,9 @@ test('JSONata Integration - Basic Path Resolution', async t => {
       },
     } as any;
 
-    assert.strictEqual(await interpolateObject('{$service.items.0}', context), 'first');
-    assert.strictEqual(await interpolateObject('{$service.items.1}', context), 'second');
-    assert.strictEqual(await interpolateObject('{$service.items.2}', context), 'third');
+    assert.strictEqual(await interpolateObject('{service.items[0]}', context), 'first');
+    assert.strictEqual(await interpolateObject('{service.items[1]}', context), 'second');
+    assert.strictEqual(await interpolateObject('{service.items[2]}', context), 'third');
   });
 });
 
@@ -55,7 +55,7 @@ test('JSONata Integration - Type Preservation', async t => {
     } as any;
 
     // Single token should preserve type
-    const result = await interpolateObject('{$service.status}', context);
+    const result = await interpolateObject('{service.status}', context);
     assert.strictEqual(result, 200);
     assert.strictEqual(typeof result, 'number');
   });
@@ -69,11 +69,11 @@ test('JSONata Integration - Type Preservation', async t => {
       },
     } as any;
 
-    const resultTrue = await interpolateObject('{$service.success}', context);
+    const resultTrue = await interpolateObject('{service.success}', context);
     assert.strictEqual(resultTrue, true);
     assert.strictEqual(typeof resultTrue, 'boolean');
 
-    const resultFalse = await interpolateObject('{$service.cached}', context);
+    const resultFalse = await interpolateObject('{service.cached}', context);
     assert.strictEqual(resultFalse, false);
     assert.strictEqual(typeof resultFalse, 'boolean');
   });
@@ -87,7 +87,7 @@ test('JSONata Integration - Type Preservation', async t => {
     } as any;
 
     // Single token returning object should preserve object type
-    const result = await interpolateObject('{$service.body}', context);
+    const result = await interpolateObject('{service.body}', context);
     assert.deepStrictEqual(result, { userId: 123, name: 'John' });
     assert.strictEqual(typeof result, 'object');
   });
@@ -101,7 +101,7 @@ test('JSONata Integration - Type Preservation', async t => {
     } as any;
 
     // Single token returning array should preserve array type
-    const result = await interpolateObject('{$service.items}', context);
+    const result = await interpolateObject('{service.items}', context);
     assert.deepStrictEqual(result, [1, 2, 3]);
     assert.strictEqual(Array.isArray(result), true);
   });
@@ -125,8 +125,8 @@ test('JSONata Integration - Deep Nesting', async t => {
       },
     } as any;
 
-    assert.strictEqual(await interpolateObject('{$service.response.data.user.profile.name}', context), 'Alice');
-    assert.strictEqual(await interpolateObject('{$service.response.data.user.profile.email}', context), 'alice@example.com');
+    assert.strictEqual(await interpolateObject('{service.response.data.user.profile.name}', context), 'Alice');
+    assert.strictEqual(await interpolateObject('{service.response.data.user.profile.email}', context), 'alice@example.com');
   });
 
   await t.test('should handle mixed arrays and objects', async () => {
@@ -139,8 +139,8 @@ test('JSONata Integration - Deep Nesting', async t => {
       },
     } as any;
 
-    assert.strictEqual(await interpolateObject('{$service.data.users.0.name}', context), 'Alice');
-    assert.strictEqual(await interpolateObject('{$service.data.users.1.id}', context), 2);
+    assert.strictEqual(await interpolateObject('{service.data.users[0].name}', context), 'Alice');
+    assert.strictEqual(await interpolateObject('{service.data.users[1].id}', context), 2);
   });
 });
 
@@ -155,11 +155,11 @@ test('JSONata Integration - Environment Variables', async t => {
     };
 
     // Should find in context.env
-    assert.strictEqual(await interpolateObject('{$env.API_KEY}', context), 'secret123');
-    assert.strictEqual(await interpolateObject('{$env.CUSTOM_VAR}', context), 'custom-value');
+    assert.strictEqual(await interpolateObject('{env.API_KEY}', context), 'secret123');
+    assert.strictEqual(await interpolateObject('{env.CUSTOM_VAR}', context), 'custom-value');
 
     // Should find in process.env (like PATH, HOME, etc.)
-    const pathValue = await interpolateObject('{$env.PATH}', context);
+    const pathValue = await interpolateObject('{env.PATH}', context);
     assert.strictEqual(typeof pathValue, 'string');
     assert.ok(pathValue.length > 0);
   });
@@ -173,7 +173,7 @@ test('JSONata Integration - Complex Interpolation', async t => {
       service2: { body: { token: 'abc456' } },
     } as any;
 
-    const result = await interpolateObject('userId={$service1.body.userId}&token={$service2.body.token}', context);
+    const result = await interpolateObject('userId={service1.body.userId}&token={service2.body.token}', context);
     assert.strictEqual(result, 'userId=123&token=abc456');
   });
 
@@ -186,7 +186,7 @@ test('JSONata Integration - Complex Interpolation', async t => {
       },
     };
 
-    const url = await interpolateObject('https://{$env.HOST}:{$env.PORT}/api/v1', context);
+    const url = await interpolateObject('https://{env.HOST}:{env.PORT}/api/v1', context);
     assert.strictEqual(url, 'https://api.example.com:8080/api/v1');
   });
 
@@ -198,7 +198,7 @@ test('JSONata Integration - Complex Interpolation', async t => {
       },
     };
 
-    const url = await interpolateObject('{$env.API_BASE}/users/{$request.body.userId}', context);
+    const url = await interpolateObject('{env.API_BASE}/users/{request.body.userId}', context);
     assert.strictEqual(url, 'https://api.example.com/users/456');
   });
 });
@@ -209,7 +209,7 @@ test('JSONata Integration - Error Handling', async t => {
       request: {},
     };
 
-    assert.strictEqual(await interpolateObject('{$undefined.path}', context), '{$undefined.path}');
+    assert.strictEqual(await interpolateObject('{undefined.path}', context), '{undefined.path}');
   });
 
   await t.test('should return original token for missing nested properties', async () => {
@@ -218,7 +218,7 @@ test('JSONata Integration - Error Handling', async t => {
       service: { body: { id: 123 } },
     } as any;
 
-    assert.strictEqual(await interpolateObject('{$service.missing.property}', context), '{$service.missing.property}');
+    assert.strictEqual(await interpolateObject('{service.missing.property}', context), '{service.missing.property}');
   });
 
   await t.test('should handle null and undefined values gracefully', async () => {
@@ -231,9 +231,9 @@ test('JSONata Integration - Error Handling', async t => {
     } as any;
 
     // null is a valid value, so it should be returned as is
-    assert.strictEqual(await interpolateObject('{$service.nullValue}', context), null);
+    assert.strictEqual(await interpolateObject('{service.nullValue}', context), null);
     // undefined should return original token
-    assert.strictEqual(await interpolateObject('{$service.undefinedValue}', context), '{$service.undefinedValue}');
+    assert.strictEqual(await interpolateObject('{service.undefinedValue}', context), '{service.undefinedValue}');
   });
 });
 
@@ -247,16 +247,16 @@ test('JSONata Integration - InterpolateObject with Complex Structures', async t 
 
     const config = {
       headers: {
-        authorization: '{$auth.token}',
+        authorization: '{auth.token}',
       },
       query: {
-        userId: '{$user.id}',
-        name: '{$user.name}',
+        userId: '{user.id}',
+        name: '{user.name}',
       },
     };
 
     const result = await interpolateObject(config, context);
-    // Note: Single token {$user.id} preserves the number type (456, not '456')
+    // Note: Single token {user.id} preserves the number type (456, not '456')
     assert.deepStrictEqual(result, {
       headers: {
         authorization: 'abc123',
@@ -275,8 +275,8 @@ test('JSONata Integration - InterpolateObject with Complex Structures', async t 
     } as any;
 
     const config = [
-      '{$service.id}',
-      '{$service.name}',
+      '{service.id}',
+      '{service.name}',
       'static-value',
     ];
 
@@ -296,9 +296,9 @@ test('JSONata Integration - InterpolateObject with Complex Structures', async t 
     } as any;
 
     const config = {
-      statusCode: '{$api.response.status}', // Single token, should preserve number
-      items: '{$api.response.body.items}', // Single token, should preserve array
-      message: 'Status: {$api.response.status}', // Mixed text, should be string
+      statusCode: '{api.response.status}', // Single token, should preserve number
+      items: '{api.response.body.items}', // Single token, should preserve array
+      message: 'Status: {api.response.status}', // Mixed text, should be string
     };
 
     const result = await interpolateObject(config, context);
