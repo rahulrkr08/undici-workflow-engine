@@ -63,7 +63,7 @@ export async function runOrchestration(
   for (const serviceBlock of services) {
     const status = workflowResult.metadata?.states?.[serviceBlock.id];
     // Data can be in workflowResult.data (normal case) or in context (when execute threw)
-    let data = workflowResult.data?.[serviceBlock.id] || (workflowResult.context as any)?.[serviceBlock.id];
+    let data = workflowResult.data?.[serviceBlock.id];
 
     switch (status) {
       case 'completed':
@@ -74,10 +74,10 @@ export async function runOrchestration(
       case 'failed':
         // Service failed - the result should be in data or context
         const errorResult = workflowResult.metadata?.errors?.[serviceBlock.id];
-        const { result: {metadata, ...restResult} } = errorResult || {};
+        const { result: {metadata, ...error} } = errorResult || {};
         if(errorResult) {
           servicesMap[serviceBlock.id] = {
-            error: restResult,
+            error,
             status: errorResult.result?.status || null,
             metadata: metadata,
           } as ServiceResult;
@@ -108,10 +108,6 @@ export async function runOrchestration(
             executionStatus: 'pending',
           },
         };
-        break;
-
-      default:
-        // Unknown status - do not include in results
         break;
     }
   }
