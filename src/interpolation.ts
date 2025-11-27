@@ -49,18 +49,33 @@ export async function interpolateObject(
 
   if (typeof obj === 'string') {
     // Check if this is a single complete interpolation token (no text before/after)
-    const singleTokenMatch = obj.match(/^\{\$([a-zA-Z0-9_-]+)([^}]*)\}$/);
+    // Matches: {$contextKey.path} or {$[JSONata expression]}
+    const singleTokenMatch = obj.match(/^\{\$(?:([a-zA-Z0-9_-]+)([^}]*)|(\[[^\]]*\]))\}$/);
     if (singleTokenMatch) {
       // This is a single token - resolve it and return with original type
-      const [, contextKey, pathWithDot] = singleTokenMatch;
-      const path = pathWithDot.startsWith('.') ? pathWithDot.slice(1) : pathWithDot;
+      if (singleTokenMatch[3]) {
+        // JSONata bracket expression: {$[...]}
+        const jsonataExpr = singleTokenMatch[3].slice(1, -1); // Remove [ and ]
+        try {
+          const resolved = await resolveViaJSONataAsync('', jsonataExpr, context);
+          return resolved !== undefined ? resolved : obj;
+        } catch (error) {
+          // If evaluation fails, return original token
+          return obj;
+        }
+      } else {
+        // Standard context key format: {$contextKey.path}
+        const contextKey = singleTokenMatch[1];
+        const pathWithDot = singleTokenMatch[2];
+        const path = pathWithDot.startsWith('.') ? pathWithDot.slice(1) : pathWithDot;
 
-      try {
-        const resolved = await resolveTokenAsync(contextKey, path, context);
-        return resolved !== undefined ? resolved : obj;
-      } catch (error) {
-        // If evaluation fails, return original token
-        return obj;
+        try {
+          const resolved = await resolveTokenAsync(contextKey, path, context);
+          return resolved !== undefined ? resolved : obj;
+        } catch (error) {
+          // If evaluation fails, return original token
+          return obj;
+        }
       }
     }
 
@@ -226,7 +241,8 @@ async function resolveViaJSONataAsync(
   path: string,
   context: OrchestrationContext
 ): Promise<any> {
-  const expression = `${contextKey}.${path}`;
+  // Handle bracket expressions like [Account.Order.Product."Product Name"]
+  const expression = contextKey === '' ? path : `${contextKey}.${path}`;
 
   // Build evaluation context with special handling for 'env'
   let evalContext = { ...context };

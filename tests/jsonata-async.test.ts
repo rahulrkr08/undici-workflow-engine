@@ -294,4 +294,36 @@ test('JSONata Async - Error Handling', async t => {
     // Should return original token when resolution fails
     assert.strictEqual(result, '{$service.data.property}');
   });
+
+  await t.test('should support JSONata bracket expressions with array flattening', async () => {
+    const context: OrchestrationContext = {
+      Account: {
+        'Account Name': 'Firefly',
+        Order: [
+          {
+            Product: [
+              { 'Product Name': 'Bowler Hat' },
+              { 'Product Name': 'Trilby hat' },
+            ],
+          },
+          {
+            Product: [
+              { 'Product Name': 'Bowler Hat' },
+              { 'Product Name': 'Cloak' },
+            ],
+          },
+        ],
+      },
+    } as any;
+
+    // JSONata bracket expression to flatten arrays and extract product names
+    const result = await interpolateObject('{$[Account.Order.Product."Product Name"]}', context);
+    // Result is an array with JSONata's sequence property
+    assert.strictEqual(Array.isArray(result), true);
+    assert.strictEqual(result.length, 4);
+    assert.strictEqual(result[0], 'Bowler Hat');
+    assert.strictEqual(result[1], 'Trilby hat');
+    assert.strictEqual(result[2], 'Bowler Hat');
+    assert.strictEqual(result[3], 'Cloak');
+  });
 });
