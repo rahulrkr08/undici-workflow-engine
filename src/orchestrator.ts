@@ -24,9 +24,9 @@ export async function runOrchestration(
     dependencies: serviceBlock.dependsOn || [],
     execute: async (workflowContext) => {
       // Interpolate service configuration
-      const interpolatedConfig: ServiceConfig = interpolateObject(
+      const interpolatedConfig: ServiceConfig = await interpolateObject(
         serviceBlock.service,
-        workflowContext.getAll()
+        workflowContext.getAll() as OrchestrationContext
       );
 
       // Execute the HTTP service and return result
