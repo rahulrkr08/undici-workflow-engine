@@ -764,3 +764,160 @@ test('Interpolation - curly brace syntax', async t => {
     assert.deepStrictEqual(result, [{ id: '1' }, { id: '2' }]);
   });
 });
+
+test('Interpolation - resolvePath conditions', async t => {
+  await t.test('should handle empty path by returning data as-is', () => {
+    // Testing resolvePath condition: if (!path) { return data; }
+    const context: OrchestrationContext = {
+      request: {},
+      service01: {
+        body: { userId: 123, name: 'John' },
+      },
+    } as any;
+
+    // Single token with no path should return the entire object with original type
+    const result = interpolateObject('{$service01.body}', context);
+    assert.deepStrictEqual(result, { userId: 123, name: 'John' });
+  });
+
+  await t.test('should return undefined when intermediate value is null', () => {
+    // Testing resolvePath condition: if (current === null || current === undefined)
+    const context: OrchestrationContext = {
+      request: {},
+      service01: {
+        response: {
+          data: null,
+        },
+      },
+    } as any;
+
+    // When an intermediate value is null, resolvePath should return undefined
+    const result = interpolateValue('{$service01.response.data.nested}', context);
+    assert.strictEqual(result, '{$service01.response.data.nested}');
+  });
+
+  await t.test('should return undefined when intermediate value is undefined', () => {
+    // Testing resolvePath condition: if (current === null || current === undefined)
+    const context: OrchestrationContext = {
+      request: {},
+      service01: {
+        response: {
+          data: undefined,
+        },
+      },
+    } as any;
+
+    // When an intermediate value is undefined, resolvePath should return undefined
+    const result = interpolateValue('{$service01.response.data.nested}', context);
+    assert.strictEqual(result, '{$service01.response.data.nested}');
+  });
+
+  await t.test('should resolve path correctly through normal property access', () => {
+    // Testing resolvePath normal condition: current = current[part]
+    const context: OrchestrationContext = {
+      request: {},
+      service01: {
+        response: {
+          data: {
+            user: {
+              id: 42,
+            },
+          },
+        },
+      },
+    } as any;
+
+    // Should resolve through each property level
+    const result = interpolateValue('{$service01.response.data.user.id}', context);
+    assert.strictEqual(result, '42');
+  });
+
+  await t.test('should handle mixed null values in deep path', () => {
+    // Testing resolvePath with null in middle of path
+    const context: OrchestrationContext = {
+      request: {},
+      service01: {
+        response: {
+          data: {
+            user: null,
+          },
+        },
+      },
+    } as any;
+
+    // When a middle value is null, further resolution should fail
+    const result = interpolateValue('{$service01.response.data.user.id}', context);
+    assert.strictEqual(result, '{$service01.response.data.user.id}');
+  });
+
+  await t.test('should handle bracket notation in path for resolvePath', () => {
+    // Testing resolvePath with normalized bracket notation
+    const context: OrchestrationContext = {
+      request: {},
+      service01: {
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'secret123',
+        },
+      },
+    } as any;
+
+    // Bracket notation should be normalized and resolved correctly
+    const result1 = interpolateValue("{$service01.headers['content-type']}", context);
+    assert.strictEqual(result1, 'application/json');
+
+    const result2 = interpolateValue("{$service01.headers['x-api-key']}", context);
+    assert.strictEqual(result2, 'secret123');
+  });
+
+  await t.test('should handle numeric indices in path for resolvePath', () => {
+    // Testing resolvePath with array indices
+    const context: OrchestrationContext = {
+      request: {},
+      service01: {
+        items: ['first', 'second', 'third'],
+      },
+    } as any;
+
+    // Should be able to access array elements by index
+    const result = interpolateValue('{$service01.items.0}', context);
+    assert.strictEqual(result, 'first');
+  });
+
+  await t.test('should handle null in object property with interpolateObject', () => {
+    // Testing resolvePath in interpolateObject context
+    const context: OrchestrationContext = {
+      request: {},
+      service01: {
+        body: null,
+      },
+    } as any;
+
+    // Single token resolving to null should return null
+    const result = interpolateObject('{$service01.body}', context);
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('should resolve path when all intermediate values exist', () => {
+    // Testing successful resolvePath through all conditions
+    const context: OrchestrationContext = {
+      request: {},
+      api: {
+        response: {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: {
+            users: [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }],
+          },
+        },
+      },
+    } as any;
+
+    // Test multiple path resolutions
+    assert.strictEqual(interpolateValue('{$api.response.status}', context), '200');
+    assert.strictEqual(interpolateValue("{$api.response.headers['content-type']}", context), 'application/json');
+    assert.strictEqual(interpolateValue('{$api.response.body.users.0.name}', context), 'Alice');
+  });
+});
