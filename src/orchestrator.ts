@@ -8,7 +8,6 @@ import type {
 } from './types.js';
 import { interpolateObject } from './interpolation.js';
 import { executeService } from './executor.js';
-import { error } from 'console';
 
 /**
  * Main orchestration function
@@ -56,7 +55,6 @@ export async function runOrchestration(
     processes,
     initialContext: context,
   });
-  console.log({workflowResult})
   // Extract service results from workflow data
   const servicesMap: Record<string, ServiceResult> = {};
 
@@ -85,18 +83,14 @@ export async function runOrchestration(
         break;
 
       case 'skipped':
-        // Service was skipped due to condition
-        if (serviceBlock.service.fallback) {
-          // For skipped services, include fallback data if defined
-          servicesMap[serviceBlock.id] = {
-            status: serviceBlock.service.fallback.status || null,
-            body: serviceBlock.service.fallback.data,
-            metadata: {
-              executionStatus: 'skipped',
-              fallbackUsed: true,
-            },
-          };
-        }
+        servicesMap[serviceBlock.id] = {
+          status: serviceBlock.service.fallback?.status || null,
+          body: serviceBlock.service.fallback?.data,
+          metadata: {
+            executionStatus: 'skipped',
+            fallbackUsed: !!serviceBlock.service.fallback,
+          },
+        };
         break;
 
       case 'pending':

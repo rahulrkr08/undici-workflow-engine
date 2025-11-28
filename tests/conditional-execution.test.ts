@@ -31,8 +31,11 @@ test('Condition: skip service when condition evaluates to false', async () => {
 
   const result = await runOrchestration(services, context);
 
-  // Service should be skipped and not in results
-  assert.strictEqual(result.services.protectedService, undefined);
+  // Service should be skipped
+  assert.ok(result.services.protectedService);
+  assert.strictEqual(result.services.protectedService.metadata?.executionStatus, 'skipped');
+  assert.strictEqual(result.services.protectedService.status, null);
+  assert.strictEqual(result.services.protectedService.body, undefined);
 });
 
 test('Condition: skip dependent service when condition is false', async () => {
@@ -74,7 +77,9 @@ test('Condition: skip dependent service when condition is false', async () => {
 
   assert.strictEqual(result.services.auth.status, 200);
   // adminPanel should be skipped because condition is false
-  assert.strictEqual(result.services.adminPanel, undefined);
+  assert.ok(result.services.adminPanel);
+  assert.strictEqual(result.services.adminPanel.metadata?.executionStatus, 'skipped');
+  assert.strictEqual(result.services.adminPanel.status, null);
 });
 
 test('ErrorStrategy: throw can be used to mark critical errors', async () => {
@@ -170,7 +175,9 @@ test('Condition: use request context in condition to skip service', async () => 
   const result = await runOrchestration(services, context);
 
   // Service should be skipped because request.body.isAdmin is false
-  assert.strictEqual(result.services.checkPermission, undefined);
+  assert.ok(result.services.checkPermission);
+  assert.strictEqual(result.services.checkPermission.metadata?.executionStatus, 'skipped');
+  assert.strictEqual(result.services.checkPermission.status, null);
 });
 
 test('Combined: condition false and errorStrategy throw', async () => {
@@ -212,7 +219,9 @@ test('Combined: condition false and errorStrategy throw', async () => {
 
   assert.strictEqual(result.services.validate.status, 200);
   // Process should be skipped because validate condition is false
-  assert.strictEqual(result.services.process, undefined);
+  assert.ok(result.services.process);
+  assert.strictEqual(result.services.process.metadata?.executionStatus, 'skipped');
+  assert.strictEqual(result.services.process.status, null);
 });
 
 test('Condition: multiple services with conditions - some skipped, some executed', async () => {
@@ -261,7 +270,9 @@ test('Condition: multiple services with conditions - some skipped, some executed
   assert.strictEqual(result.services.alwaysRun.status, 200);
 
   // neverRun should be skipped
-  assert.strictEqual(result.services.neverRun, undefined);
+  assert.ok(result.services.neverRun);
+  assert.strictEqual(result.services.neverRun.metadata?.executionStatus, 'skipped');
+  assert.strictEqual(result.services.neverRun.status, null);
 
   // sometimesRun should execute
   assert.ok(result.services.sometimesRun);
@@ -318,8 +329,11 @@ test('Condition: skipped service without fallback should not be included', async
 
   const result = await runOrchestration(services, context);
 
-  // Service should be skipped and not in results (no fallback defined)
-  assert.strictEqual(result.services.skippedService, undefined);
+  // Service should be skipped (no fallback defined)
+  assert.ok(result.services.skippedService);
+  assert.strictEqual(result.services.skippedService.metadata?.executionStatus, 'skipped');
+  assert.strictEqual(result.services.skippedService.status, null);
+  assert.strictEqual(result.services.skippedService.body, undefined);
 });
 
 test('Condition: dependent service skipped with fallback includes fallback data', async () => {
@@ -478,7 +492,6 @@ test('Execution Status: first service fails, second service should be pending', 
   };
 
   const result = await runOrchestration(services, context);
-  console.log(JSON.stringify(result, null, 2));
   // First service should fail
   assert.strictEqual(result.services.failingService.metadata?.executionStatus, 'failed');
   assert.strictEqual(result.services.failingService.status, null);

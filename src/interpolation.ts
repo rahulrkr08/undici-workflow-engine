@@ -34,13 +34,8 @@ export async function interpolateObject(
     if (singleTokenMatch) {
       // This is a single token - resolve it and return with original type
       const jsonataExpr = singleTokenMatch[1];
-      try {
-        const resolved = await evaluateJSONataAsync(jsonataExpr, context);
-        return resolved !== undefined ? resolved : obj;
-      } catch (error) {
-        // If evaluation fails, return original token
-        return obj;
-      }
+      const resolved = await evaluateJSONataAsync(jsonataExpr, context);
+      return resolved !== undefined ? resolved : obj;
     }
 
     // Multiple tokens or mixed text - replace all {expression} placeholders
@@ -108,13 +103,9 @@ async function interpolateStringAsync(
 
   // Evaluate each match with JSONata
   for (const m of matches) {
-    try {
-      const resolved = await evaluateJSONataAsync(m.expression, context);
-      const replacement = resolved !== undefined && resolved !== null ? String(resolved) : m.fullMatch;
-      result = result.replace(m.fullMatch, replacement);
-    } catch (error) {
-      // If evaluation fails, keep original token
-    }
+    const resolved = await evaluateJSONataAsync(m.expression, context);
+    const replacement = resolved !== undefined && resolved !== null ? String(resolved) : m.fullMatch;
+    result = result.replace(m.fullMatch, replacement);
   }
 
   return result;
