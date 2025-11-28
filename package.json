@@ -2,16 +2,18 @@
   "name": "undici-workflow-engine",
   "version": "1.4.0",
   "description": "A workflow engine that orchestrates HTTP services using Undici.",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
     }
   },
   "files": [
+    "src/**",
+    "tests/**",
     "dist/**/*.js",
     "dist/**/*.js.map",
     "dist/**/*.d.ts",
@@ -21,7 +23,7 @@
     "SERVICE_CONFIG.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc",
     "test": "borp --coverage tests/*.test.ts --coverage-exclude '**/node_modules/**' --coverage-exclude '**/tests/**'",
     "prepublishOnly": "npm run build"
   },
