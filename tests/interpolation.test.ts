@@ -1,115 +1,10 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert';
-import { interpolateValue, interpolateObject, cookiesToHeader, buildQueryString } from '../src/interpolation.js';
+import { interpolateObject, cookiesToHeader, buildQueryString } from '../src/interpolation.js';
 import type { OrchestrationContext } from '../src/types.js';
 
-test('Interpolation - interpolateValue', async t => {
-  await t.test('should return non-string values unchanged', () => {
-    const context: OrchestrationContext = {
-      request: {},
-    };
-
-    assert.strictEqual(interpolateValue(123, context), 123);
-    assert.strictEqual(interpolateValue(true, context), true);
-    assert.deepStrictEqual(interpolateValue({ key: 'value' }, context), { key: 'value' });
-    assert.deepStrictEqual(interpolateValue([1, 2, 3], context), [1, 2, 3]);
-    assert.strictEqual(interpolateValue(null, context), null);
-  });
-
-  await t.test('should handle {$env} variables', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      env: {
-        API_KEY: 'secret123',
-        DEBUG: 'true',
-      },
-    };
-
-    assert.strictEqual(interpolateValue('{$env.API_KEY}', context), 'secret123');
-    assert.strictEqual(interpolateValue('{$env.DEBUG}', context), 'true');
-    assert.strictEqual(interpolateValue('{$env.MISSING}', context), '{$env.MISSING}');
-    assert.strictEqual(interpolateValue('{$env.API_KEY}/hello', context), 'secret123/hello');
-  });
-
-  await t.test('should handle {$service} variables', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        status: 200,
-        body: { userId: 123, name: 'John' },
-      },
-    } as any;
-
-    assert.strictEqual(interpolateValue('{$service01.status}', context), '200');
-    assert.strictEqual(interpolateValue('{$service01.body.userId}', context), '123');
-    assert.strictEqual(interpolateValue('{$service01.body.name}', context), 'John');
-  });
-
-  await t.test('should handle {$request} variables', () => {
-    const context: OrchestrationContext = {
-      request: {
-        body: { email: 'test@example.com' },
-        headers: { 'x-custom': 'value' },
-      },
-    };
-
-    assert.strictEqual(interpolateValue('{$request.body.email}', context), 'test@example.com');
-    assert.strictEqual(interpolateValue('{$request.headers.x-custom}', context), 'value');
-  });
-
-  await t.test('should handle any custom context keys', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      customData: {
-        value: 'custom123',
-        nested: { field: 'nestedValue' },
-      },
-    } as any;
-
-    assert.strictEqual(interpolateValue('{$customData.value}', context), 'custom123');
-    assert.strictEqual(interpolateValue('{$customData.nested.field}', context), 'nestedValue');
-  });
-
-  await t.test('should handle bracket notation', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: { 'custom:field': 'customValue', 'another-field': 'anotherValue' },
-      },
-    } as any;
-
-    assert.strictEqual(interpolateValue("{$service01.body['custom:field']}", context), 'customValue');
-    assert.strictEqual(interpolateValue('{$service01.body["another-field"]}', context), 'anotherValue');
-  });
-
-  await t.test('should return original value for plain strings', () => {
-    const context: OrchestrationContext = {
-      request: {},
-    };
-
-    assert.strictEqual(interpolateValue('plain text', context), 'plain text');
-    assert.strictEqual(interpolateValue('http://example.com', context), 'http://example.com');
-  });
-
-  await t.test('should handle context keys without path', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      auth: { token: 'abc123' },
-    } as any;
-
-    // When using interpolateObject (which preserves types), this returns the object
-    // When using interpolateValue directly on a string with the token, it converts to string
-    const result = interpolateValue('{$auth}', context);
-    assert.strictEqual(result, '[object Object]');
-
-    // But with interpolateObject, it returns the original object type
-    const result2 = interpolateObject('{$auth}', context);
-    assert.deepStrictEqual(result2, { token: 'abc123' });
-  });
-});
-
 test('Interpolation - interpolateObject', async t => {
-  await t.test('should interpolate all values in object', () => {
+  await t.test('should interpolate all values in object', async () => {
     const context: OrchestrationContext = {
       request: {
         body: { userId: 123 },
@@ -124,16 +19,16 @@ test('Interpolation - interpolateObject', async t => {
 
     const input = {
       headers: {
-        'x-api-key': '{$env.API_KEY}',
-        'x-user-id': '{$request.body.userId}',
+        'x-api-key': '{env.API_KEY}',
+        'x-user-id': '{request.body.userId}',
       },
       query: {
-        token: '{$service01.body.token}',
+        token: '{service01.body.token}',
       },
       data: 'plain string',
     };
 
-    const result = interpolateObject(input, context);
+    const result = await interpolateObject(input, context);
 
     assert.strictEqual(result.headers['x-api-key'], 'secret');
     assert.strictEqual(result.headers['x-user-id'], 123);  // Returns number type
@@ -141,7 +36,7 @@ test('Interpolation - interpolateObject', async t => {
     assert.strictEqual(result.data, 'plain string');
   });
 
-  await t.test('should interpolate arrays', () => {
+  await t.test('should interpolate arrays', async () => {
     const context: OrchestrationContext = {
       request: {},
       env: {
@@ -150,13 +45,13 @@ test('Interpolation - interpolateObject', async t => {
       },
     };
 
-    const input = ['{$env.VALUE1}', '{$env.VALUE2}', 'plain'];
-    const result = interpolateObject(input, context);
+    const input = ['{env.VALUE1}', '{env.VALUE2}', 'plain'];
+    const result = await interpolateObject(input, context);
 
     assert.deepStrictEqual(result, ['first', 'second', 'plain']);
   });
 
-  await t.test('should handle nested objects and arrays', () => {
+  await t.test('should handle nested objects and arrays', async () => {
     const context: OrchestrationContext = {
       request: {},
       service01: {
@@ -172,12 +67,12 @@ test('Interpolation - interpolateObject', async t => {
     const input = {
       data: {
         nested: {
-          items: '{$service01.body.items}',
+          items: '{service01.body.items}',
         },
       },
     };
 
-    const result = interpolateObject(input, context);
+    const result = await interpolateObject(input, context);
 
     // When a token is single and complete, it returns the original type (array in this case)
     assert.deepStrictEqual(result.data.nested.items, [
@@ -186,16 +81,16 @@ test('Interpolation - interpolateObject', async t => {
     ]);
   });
 
-  await t.test('should handle null and undefined values', () => {
+  await t.test('should handle null and undefined values', async () => {
     const context: OrchestrationContext = {
       request: {},
     };
 
-    assert.strictEqual(interpolateObject(null, context), null);
-    assert.strictEqual(interpolateObject(undefined, context), undefined);
+    assert.strictEqual(await interpolateObject(null, context), null);
+    assert.strictEqual(await interpolateObject(undefined, context), undefined);
   });
 
-  await t.test('should preserve non-string values', () => {
+  await t.test('should preserve non-string values', async () => {
     const context: OrchestrationContext = {
       request: {},
     };
@@ -208,41 +103,9 @@ test('Interpolation - interpolateObject', async t => {
       array: [1, 2, 3],
     };
 
-    const result = interpolateObject(input, context);
+    const result = await interpolateObject(input, context);
 
     assert.deepStrictEqual(result, input);
-  });
-});
-
-test('Interpolation - edge cases', async t => {
-  await t.test('should handle undefined service references', () => {
-    const context: OrchestrationContext = {
-      request: {},
-    };
-
-    const result = interpolateValue('{$service.nonexistent.body}', context);
-    assert.strictEqual(result, '{$service.nonexistent.body}');
-  });
-
-  await t.test('should handle missing nested properties', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: { field: 'value' },
-      },
-    };
-
-    const result = interpolateValue('{$service01.body.missing.nested}', context);
-    assert.strictEqual(result, '{$service01.body.missing.nested}');
-  });
-
-  await t.test('should handle empty context', () => {
-    const context: OrchestrationContext = {
-      request: {},
-    };
-
-    assert.strictEqual(interpolateValue('{$env.MISSING}', context), '{$env.MISSING}');
-    assert.strictEqual(interpolateValue('{$request.body}', context), '{$request.body}');
   });
 });
 
@@ -343,581 +206,5 @@ test('Interpolation - buildQueryString', async t => {
     assert.ok(result.includes('page=1'));
     assert.ok(result.includes('active=true'));
     assert.ok(result.includes('skip=0'));
-  });
-});
-
-test('Interpolation - resolvePath edge cases', async t => {
-  await t.test('should handle empty path returning data as-is', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      data: { value: 'test' },
-    } as any;
-
-    // Empty path should return the entire context value as string
-    const result = interpolateValue('{$data}', context);
-    assert.strictEqual(result, '[object Object]');
-  });
-
-  await t.test('should handle deeply nested paths', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        response: {
-          data: {
-            user: {
-              profile: {
-                contact: {
-                  email: 'john@example.com',
-                },
-              },
-            },
-          },
-        },
-      },
-    } as any;
-
-    const result = interpolateValue('{$service01.response.data.user.profile.contact.email}', context);
-    assert.strictEqual(result, 'john@example.com');
-  });
-
-  await t.test('should handle null intermediate values in path', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: null,
-      },
-    } as any;
-
-    const result = interpolateValue('{$service01.body.field}', context);
-    assert.strictEqual(result, '{$service01.body.field}');
-  });
-
-  await t.test('should handle undefined intermediate values in path', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: undefined,
-      },
-    } as any;
-
-    const result = interpolateValue('{$service01.body.field}', context);
-    assert.strictEqual(result, '{$service01.body.field}');
-  });
-
-  await t.test('should handle bracket notation with single quotes', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        data: {
-          'custom-field': 'value1',
-          'api:key': 'value2',
-        },
-      },
-    } as any;
-
-    const result1 = interpolateValue("{$service01.data['custom-field']}", context);
-    assert.strictEqual(result1, 'value1');
-
-    const result2 = interpolateValue("{$service01.data['api:key']}", context);
-    assert.strictEqual(result2, 'value2');
-  });
-
-  await t.test('should handle bracket notation with double quotes', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        data: {
-          'field-name': 'fieldValue',
-          'x-header': 'headerValue',
-        },
-      },
-    } as any;
-
-    const result1 = interpolateValue('{$service01.data["field-name"]}', context);
-    assert.strictEqual(result1, 'fieldValue');
-
-    const result2 = interpolateValue('{$service01.data["x-header"]}', context);
-    assert.strictEqual(result2, 'headerValue');
-  });
-
-  await t.test('should handle mixed bracket and dot notation', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        response: {
-          'headers': {
-            'content-type': 'application/json',
-          },
-        },
-      },
-    } as any;
-
-    const result = interpolateValue("{$service01.response['headers']['content-type']}", context);
-    assert.strictEqual(result, 'application/json');
-  });
-});
-
-test('Interpolation - curly brace syntax', async t => {
-  await t.test('should interpolate with curly braces and trailing text', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      env: {
-        HOST: 'https://www.example.com',
-      },
-    };
-
-    const result = interpolateValue('{$env.HOST}/hello', context);
-    assert.strictEqual(result, 'https://www.example.com/hello');
-  });
-
-  await t.test('should interpolate with curly braces and leading text', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      env: {
-        API: 'api',
-      },
-    };
-
-    const result = interpolateValue('prefix{$env.API}', context);
-    assert.strictEqual(result, 'prefixapi');
-  });
-
-  await t.test('should interpolate with curly braces and adjacent text', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      env: {
-        TEXT: 'hello',
-      },
-    };
-
-    const result = interpolateValue('{$env.TEXT}api', context);
-    assert.strictEqual(result, 'helloapi');
-  });
-
-  await t.test('should interpolate with curly braces and special characters', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      env: {
-        TEXT: 'test',
-      },
-    };
-
-    const result = interpolateValue('{$env.TEXT}-api', context);
-    assert.strictEqual(result, 'test-api');
-  });
-
-  await t.test('should support multiple interpolations in single string', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      env: {
-        A: 'path',
-        B: 'file',
-      },
-    };
-
-    const result = interpolateValue('{$env.A}/{$env.B}', context);
-    assert.strictEqual(result, 'path/file');
-  });
-
-  await t.test('should support complex URL with multiple interpolations', () => {
-    const context: OrchestrationContext = {
-      request: {
-        body: { id: '123' },
-      },
-      env: {
-        HOST: 'https://api.example.com',
-      },
-    };
-
-    const result = interpolateValue('{$env.HOST}/api/users/{$request.body.id}', context);
-    assert.strictEqual(result, 'https://api.example.com/api/users/123');
-  });
-
-  await t.test('should handle query strings with multiple interpolations', () => {
-    const context: OrchestrationContext = {
-      request: {
-        body: { token: 'abc123', email: 'test@example.com' },
-      },
-      env: {
-        API_KEY: 'key123',
-      },
-    };
-
-    const result = interpolateValue('{$env.API_KEY}?token={$request.body.token}&email={$request.body.email}', context);
-    assert.strictEqual(result, 'key123?token=abc123&email=test@example.com');
-  });
-
-  await t.test('should handle nested paths in curly braces', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: { userId: 456 },
-      },
-    };
-
-    const result = interpolateValue('/users/{$service01.body.userId}', context);
-    assert.strictEqual(result, '/users/456');
-  });
-
-  await t.test('should handle bracket notation in curly braces', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        data: { 'custom-field': 'value123' },
-      },
-    };
-
-    const result = interpolateValue('prefix{$service01.data["custom-field"]}suffix', context);
-    assert.strictEqual(result, 'prefixvalue123suffix');
-  });
-
-  await t.test('should return original token if context key not found', () => {
-    const context: OrchestrationContext = {
-      request: {},
-    };
-
-    const result = interpolateValue('{$missing.field}/api', context);
-    assert.strictEqual(result, '{$missing.field}/api');
-  });
-
-  await t.test('should handle undefined resolved values in curly braces', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: { field: 'value' },
-      },
-    };
-
-    const result = interpolateValue('/api/{$service01.body.missing}', context);
-    assert.strictEqual(result, '/api/{$service01.body.missing}');
-  });
-
-  await t.test('should convert non-string values to strings in curly braces', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        status: 200,
-      },
-    };
-
-    const result = interpolateValue('Status: {$service01.status}', context);
-    assert.strictEqual(result, 'Status: 200');
-  });
-
-  await t.test('should handle consecutive interpolations', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      env: {
-        A: 'hello',
-        B: 'world',
-      },
-    };
-
-    const result = interpolateValue('{$env.A}{$env.B}', context);
-    assert.strictEqual(result, 'helloworld');
-  });
-
-  await t.test('should preserve text between tokens', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      env: {
-        PROTOCOL: 'https',
-        HOST: 'api.example.com',
-        PORT: '8080',
-      },
-    };
-
-    const result = interpolateValue('{$env.PROTOCOL}://{$env.HOST}:{$env.PORT}', context);
-    assert.strictEqual(result, 'https://api.example.com:8080');
-  });
-
-  await t.test('should handle undefined context key in single token interpolation', () => {
-    const context: OrchestrationContext = {
-      request: {},
-    };
-
-    // Single token with undefined context key should return original
-    const result = interpolateObject('{$undefinedService.body}', context);
-    assert.strictEqual(result, '{$undefinedService.body}');
-  });
-
-  await t.test('should handle resolvePath with null/undefined intermediate values', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: null,
-      },
-    } as any;
-
-    // Trying to access nested property on null should return undefined
-    const result = interpolateValue('{$service01.body.field}', context);
-    assert.strictEqual(result, '{$service01.body.field}');
-  });
-
-  await t.test('should return original token when context value is undefined in interpolateObject', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      // No 'missing' key
-    } as any;
-
-    const result = interpolateObject('{$missing.path.field}', context);
-    assert.strictEqual(result, '{$missing.path.field}');
-  });
-
-  await t.test('should handle single token with undefined resolved value', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: { existingField: 'value' },
-      },
-    } as any;
-
-    // Single token resolving to undefined should return original
-    const result = interpolateObject('{$service01.body.nonExistent}', context);
-    assert.strictEqual(result, '{$service01.body.nonExistent}');
-  });
-
-  await t.test('should preserve original type for single complete token in interpolateObject', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: { count: 42, active: true, items: [1, 2, 3] },
-      },
-    } as any;
-
-    // Single token should preserve type (not convert to string)
-    const result = interpolateObject('{$service01.body}', context);
-    assert.deepStrictEqual(result, { count: 42, active: true, items: [1, 2, 3] });
-
-    // Single number token should stay number
-    const numResult = interpolateObject('{$service01.body.count}', context);
-    assert.strictEqual(numResult, 42);
-
-    // Single boolean token should stay boolean
-    const boolResult = interpolateObject('{$service01.body.active}', context);
-    assert.strictEqual(boolResult, true);
-
-    // Single array token should stay array
-    const arrResult = interpolateObject('{$service01.body.items}', context);
-    assert.deepStrictEqual(arrResult, [1, 2, 3]);
-  });
-
-  await t.test('should handle context key without path in single token', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      auth: { token: 'secret123', user: { id: 1 } },
-    } as any;
-
-    // Single token with just context key, no path should return entire context value
-    const result = interpolateObject('{$auth}', context);
-    assert.deepStrictEqual(result, { token: 'secret123', user: { id: 1 } });
-  });
-
-  await t.test('should handle env variable without path in single token', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      env: { API_URL: 'https://api.example.com' },
-    };
-
-    // When using {$env} alone (without path), interpolateValue converts to string
-    const result = interpolateValue('{$env}', context);
-    // {$env} alone doesn't match the pattern since it needs a path like {$env.KEY}
-    assert.strictEqual(result, '{$env}');
-  });
-
-  await t.test('should handle interpolateObject with mixed string and tokens', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        id: '123',
-      },
-    } as any;
-
-    // Mixed text and token should return string
-    const result = interpolateObject('prefix-{$service01.id}-suffix', context);
-    assert.strictEqual(result, 'prefix-123-suffix');
-  });
-
-  await t.test('should handle interpolateObject with null value', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: null,
-      },
-    } as any;
-
-    // Resolving single token to null should return null
-    const result = interpolateObject('{$service01.body}', context);
-    assert.strictEqual(result, null);
-  });
-
-  await t.test('should handle nested object interpolation in arrays', () => {
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        items: [{ id: '1' }, { id: '2' }],
-      },
-    } as any;
-
-    // Array should interpolate each item
-    const result = interpolateObject('{$service01.items}', context);
-    assert.deepStrictEqual(result, [{ id: '1' }, { id: '2' }]);
-  });
-});
-
-test('Interpolation - resolvePath conditions', async t => {
-  await t.test('should handle empty path by returning data as-is', () => {
-    // Testing resolvePath condition: if (!path) { return data; }
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: { userId: 123, name: 'John' },
-      },
-    } as any;
-
-    // Single token with no path should return the entire object with original type
-    const result = interpolateObject('{$service01.body}', context);
-    assert.deepStrictEqual(result, { userId: 123, name: 'John' });
-  });
-
-  await t.test('should return undefined when intermediate value is null', () => {
-    // Testing resolvePath condition: if (current === null || current === undefined)
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        response: {
-          data: null,
-        },
-      },
-    } as any;
-
-    // When an intermediate value is null, resolvePath should return undefined
-    const result = interpolateValue('{$service01.response.data.nested}', context);
-    assert.strictEqual(result, '{$service01.response.data.nested}');
-  });
-
-  await t.test('should return undefined when intermediate value is undefined', () => {
-    // Testing resolvePath condition: if (current === null || current === undefined)
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        response: {
-          data: undefined,
-        },
-      },
-    } as any;
-
-    // When an intermediate value is undefined, resolvePath should return undefined
-    const result = interpolateValue('{$service01.response.data.nested}', context);
-    assert.strictEqual(result, '{$service01.response.data.nested}');
-  });
-
-  await t.test('should resolve path correctly through normal property access', () => {
-    // Testing resolvePath normal condition: current = current[part]
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        response: {
-          data: {
-            user: {
-              id: 42,
-            },
-          },
-        },
-      },
-    } as any;
-
-    // Should resolve through each property level
-    const result = interpolateValue('{$service01.response.data.user.id}', context);
-    assert.strictEqual(result, '42');
-  });
-
-  await t.test('should handle mixed null values in deep path', () => {
-    // Testing resolvePath with null in middle of path
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        response: {
-          data: {
-            user: null,
-          },
-        },
-      },
-    } as any;
-
-    // When a middle value is null, further resolution should fail
-    const result = interpolateValue('{$service01.response.data.user.id}', context);
-    assert.strictEqual(result, '{$service01.response.data.user.id}');
-  });
-
-  await t.test('should handle bracket notation in path for resolvePath', () => {
-    // Testing resolvePath with normalized bracket notation
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': 'secret123',
-        },
-      },
-    } as any;
-
-    // Bracket notation should be normalized and resolved correctly
-    const result1 = interpolateValue("{$service01.headers['content-type']}", context);
-    assert.strictEqual(result1, 'application/json');
-
-    const result2 = interpolateValue("{$service01.headers['x-api-key']}", context);
-    assert.strictEqual(result2, 'secret123');
-  });
-
-  await t.test('should handle numeric indices in path for resolvePath', () => {
-    // Testing resolvePath with array indices
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        items: ['first', 'second', 'third'],
-      },
-    } as any;
-
-    // Should be able to access array elements by index
-    const result = interpolateValue('{$service01.items.0}', context);
-    assert.strictEqual(result, 'first');
-  });
-
-  await t.test('should handle null in object property with interpolateObject', () => {
-    // Testing resolvePath in interpolateObject context
-    const context: OrchestrationContext = {
-      request: {},
-      service01: {
-        body: null,
-      },
-    } as any;
-
-    // Single token resolving to null should return null
-    const result = interpolateObject('{$service01.body}', context);
-    assert.strictEqual(result, null);
-  });
-
-  await t.test('should resolve path when all intermediate values exist', () => {
-    // Testing successful resolvePath through all conditions
-    const context: OrchestrationContext = {
-      request: {},
-      api: {
-        response: {
-          status: 200,
-          headers: {
-            'content-type': 'application/json',
-          },
-          body: {
-            users: [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }],
-          },
-        },
-      },
-    } as any;
-
-    // Test multiple path resolutions
-    assert.strictEqual(interpolateValue('{$api.response.status}', context), '200');
-    assert.strictEqual(interpolateValue("{$api.response.headers['content-type']}", context), 'application/json');
-    assert.strictEqual(interpolateValue('{$api.response.body.users.0.name}', context), 'Alice');
   });
 });

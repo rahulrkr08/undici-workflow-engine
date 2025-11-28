@@ -1,143 +1,65 @@
+import jsonata from 'jsonata';
 import type { OrchestrationContext } from './types.js';
 
 /**
- * Resolves a value using the interpolation syntax:
- * - {$<contextKey>.path.to.value} - with curly braces
+ * Recursively interpolates all string values in an object using JSONata
+ * Supports direct JSONata expressions wrapped in curly braces: {expression}
  *
- * Supports text before, after, and between interpolation tokens.
+ * The entire OrchestrationContext is available as the root object for evaluation.
  *
- * Examples:
- * - {$env.HOST}/api/users → https://api.example.com/api/users
- * - {$env.TEXT}api → helloapi
- * - {$env.A}/{$env.B} → path/file
- * - https://{$env.HOST}:{$env.PORT}/api/{$request.body.id}
+ * Supports all JSONata features:
+ * - Path access: {request.body.userId}
+ * - Filters: {users[status="active"].name}
+ * - Transformations: {name.$uppercase()}
+ * - Functions: {items.$count()}
+ * - Expressions: {price * 1.1}
+ * - Array flattening: {[Account.Order.Product."Product Name"]}
  *
- * The context key can be any root property in the context object.
- * If a token cannot be resolved, it is returned unchanged.
+ * Type preservation:
+ * - Single token {expression} returns original type (number, boolean, array, object, etc.)
+ * - Multiple tokens or mixed text returns string
  */
-export function interpolateValue(
-  value: any,
-  context: OrchestrationContext
-): any {
-  if (typeof value !== 'string') {
-    return value;
-  }
-
-  // Match {$<contextKey>.path.to.value} pattern and process each token
-  return value.replace(/\{\$([a-zA-Z0-9_-]+)([^}]*)\}/g, (match, contextKey, pathWithDot) => {
-    // Remove leading dot from path if present
-    const path = pathWithDot.startsWith('.') ? pathWithDot.slice(1) : pathWithDot;
-
-    // Special handling for 'env'
-    if (contextKey === 'env') {
-      const resolved = context.env?.[path] || process.env[path];
-      return resolved !== undefined ? String(resolved) : match;
-    }
-
-    // For any other context key, resolve from the context object
-    const contextValue = context[contextKey as keyof OrchestrationContext];
-
-    if (contextValue === undefined) {
-      // Context key not found, return original token
-      return match;
-    }
-
-    // If there's a path, resolve it; otherwise return the entire context value
-    let resolved: any;
-    if (path) {
-      resolved = resolvePath(path, contextValue);
-    } else {
-      resolved = contextValue;
-    }
-
-    // Convert to string if not undefined or null
-    return resolved !== undefined && resolved !== null ? String(resolved) : match;
-  });
-}
-
-/**
- * Recursively interpolates all string values in an object
- * If a string is a single complete interpolation token (e.g., {$service.body}),
- * returns the resolved value with its original type.
- * If a string has text before/after the token, returns a string.
- */
-export function interpolateObject(
+export async function interpolateObject(
   obj: any,
-  context: any
-): any {
+  context: OrchestrationContext
+): Promise<any> {
   if (obj === null || obj === undefined) {
     return obj;
   }
 
   if (typeof obj === 'string') {
     // Check if this is a single complete interpolation token (no text before/after)
-    const singleTokenMatch = obj.match(/^\{\$([a-zA-Z0-9_-]+)([^}]*)\}$/);
+    // Matches: {jsonata_expression} anywhere in the string
+    const singleTokenMatch = obj.match(/^\{([^}]+)\}$/);
     if (singleTokenMatch) {
       // This is a single token - resolve it and return with original type
-      const [, contextKey, pathWithDot] = singleTokenMatch;
-      const path = pathWithDot.startsWith('.') ? pathWithDot.slice(1) : pathWithDot;
-
-      if (contextKey === 'env') {
-        const resolved = context.env?.[path] || process.env[path];
+      const jsonataExpr = singleTokenMatch[1];
+      try {
+        const resolved = await evaluateJSONataAsync(jsonataExpr, context);
         return resolved !== undefined ? resolved : obj;
-      }
-
-      const contextValue = context[contextKey as keyof any];
-      if (contextValue === undefined) {
+      } catch (error) {
+        // If evaluation fails, return original token
         return obj;
       }
-
-      let resolved: any;
-      if (path) {
-        resolved = resolvePath(path, contextValue);
-      } else {
-        resolved = contextValue;
-      }
-      return resolved !== undefined ? resolved : obj;
     }
 
-    // Multiple tokens or mixed text - use interpolateValue which returns a string
-    return interpolateValue(obj, context);
+    // Multiple tokens or mixed text - replace all {expression} placeholders
+    return interpolateStringAsync(obj, context);
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(item => interpolateObject(item, context));
+    return Promise.all(obj.map(item => interpolateObject(item, context)));
   }
 
   if (typeof obj === 'object') {
     const result: any = {};
     for (const [key, value] of Object.entries(obj)) {
-      result[key] = interpolateObject(value, context);
+      result[key] = await interpolateObject(value, context);
     }
     return result;
   }
 
   return obj;
-}
-
-/**
- * Resolves a path like "body.sub" or "headers['content-type']" in a data object
- */
-function resolvePath(path: string, data: any): any {
-  if (!path) {
-    return data;
-  }
-
-  // Handle bracket notation: body['custom:field'] or body["custom:field"]
-  const bracketRegex = /\['([^']+)'\]|\["([^"]+)"\]/g;
-  const normalizedPath = path.replace(bracketRegex, '.$1$2');
-
-  const parts = normalizedPath.split('.');
-  let current = data;
-
-  for (const part of parts) {
-    if (current === null || current === undefined) {
-      return undefined;
-    }
-    current = current[part];
-  }
-
-  return current;
 }
 
 /**
@@ -155,4 +77,64 @@ export function cookiesToHeader(cookies: Record<string, string>): string {
 export function buildQueryString(query: Record<string, string>): string {
   const params = new URLSearchParams(query);
   return params.toString();
+}
+
+/**
+ * Interpolates a string with multiple JSONata expressions
+ * Each {expression} is evaluated and replaced in the string
+ * Returns a string with all tokens replaced
+ */
+async function interpolateStringAsync(
+  value: string,
+  context: OrchestrationContext
+): Promise<string> {
+  // Match {expression} patterns
+  const regex = /\{([^}]+)\}/g;
+  let result = value;
+  let match;
+
+  // Collect all matches first
+  const matches: Array<{
+    fullMatch: string;
+    expression: string;
+  }> = [];
+
+  while ((match = regex.exec(value)) !== null) {
+    matches.push({
+      fullMatch: match[0],
+      expression: match[1],
+    });
+  }
+
+  // Evaluate each match with JSONata
+  for (const m of matches) {
+    try {
+      const resolved = await evaluateJSONataAsync(m.expression, context);
+      const replacement = resolved !== undefined && resolved !== null ? String(resolved) : m.fullMatch;
+      result = result.replace(m.fullMatch, replacement);
+    } catch (error) {
+      // If evaluation fails, keep original token
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Evaluates a JSONata expression against the given context
+ * The entire context is available at the root level
+ */
+async function evaluateJSONataAsync(
+  expression: string,
+  context: OrchestrationContext
+): Promise<any> {
+  try {
+    const expr = jsonata(expression);
+    // Use async evaluation
+    const result = await expr.evaluate(context);
+    return result;
+  } catch (error) {
+    // If JSONata evaluation fails, return undefined
+    return undefined;
+  }
 }

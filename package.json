@@ -39,6 +39,7 @@
   "license": "MIT",
   "dependencies": {
     "async-flow-orchestrator": "^1.3.0",
+    "jsonata": "^2.1.0",
     "undici": "^7.16.0",
     "undici-oidc-interceptor": "^0.8.0"
   },

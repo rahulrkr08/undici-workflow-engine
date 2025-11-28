@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert';
 import { runOrchestration } from '../src/orchestrator.js';
-import { interpolateValue, interpolateObject } from '../src/interpolation.js';
+import { interpolateObject } from '../src/interpolation.js';
 import type { ServiceBlock, OrchestrationContext } from '../src/types.js';
 import { MockAgent, setGlobalDispatcher } from 'undici';
 
