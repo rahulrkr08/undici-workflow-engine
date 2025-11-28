@@ -206,7 +206,6 @@ test('Orchestrator - Variable Interpolation', async t => {
     };
 
     const result = await runOrchestration(services, context);
-    console.log(JSON.stringify(result, null, 2));
     assert.ok(result.services.search !== undefined);
     assert.strictEqual(result.services.search.status, 200);
   });
