@@ -32,15 +32,9 @@ export interface OrchestrationConfig {
 }
 
 export interface OrchestrationContext {
-  request: {
-    body?: any;
-    headers?: Record<string, string>;
-    cookies?: Record<string, string>;
-    query?: Record<string, string>;
-  };
-  env?: Record<string, string>;
+  // Context can contain any data structure
   // Services will be added dynamically as they complete
-  [serviceId: string]: any;
+  [key: string]: any;
 }
 
 export interface ServiceResultMetadata {
