@@ -1,4 +1,4 @@
-import { request as undiciRequest, Agent as UndiciAgent } from 'undici';
+import { request as undiciRequest, getGlobalDispatcher } from 'undici';
 import type { ServiceConfig, ServiceResult, OrchestrationContext } from './types.js';
 import { emitServiceStart, emitServiceComplete, emitServiceError } from './diagnostics.js';
 
@@ -17,7 +17,6 @@ export async function executeService(
   }
 
   try {
-    const agent = new UndiciAgent()
     // Build URL with query params
     let url = config.url;
     if (config.query && Object.keys(config.query).length > 0) {
@@ -77,8 +76,8 @@ export async function executeService(
         tokenUrl: config.oidc.tokenUrl,
       });
 
-      agent.compose(oidcInterceptor);
-      options.dispatcher = agent;
+      // Compose OIDC interceptor with the global dispatcher
+      options.dispatcher = getGlobalDispatcher().compose(oidcInterceptor);
     }
 
     // Execute HTTP request
