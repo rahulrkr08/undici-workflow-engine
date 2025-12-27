@@ -20,9 +20,11 @@ export async function executeService(
     // Build URL with query params
     let url = config.url;
     if (config.query && Object.keys(config.query).length > 0) {
-      // Filter out undefined and null values
+      // Filter out undefined, null, and stringified "undefined" or "null" values
       const filteredQuery = Object.fromEntries(
-        Object.entries(config.query).filter(([_, value]) => value != null)
+        Object.entries(config.query).filter(([_, value]) =>
+          value != null && value !== 'undefined' && value !== 'null'
+        )
       );
       if (Object.keys(filteredQuery).length > 0) {
         const params = new URLSearchParams(filteredQuery);

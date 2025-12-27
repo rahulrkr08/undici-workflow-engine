@@ -163,6 +163,25 @@ test('Executor - Query Parameters', async (t) => {
 
     assert.strictEqual(result.status, 200);
   });
+
+  await t.test('should filter out undefined and null query parameters', async () => {
+    const server = new MockServer(
+      queryParamHandler({ next: '694d547c9da28c73e2dfc5d4' }, { items: [] }),
+    );
+    const url = await server.listen();
+    t.after(() => server.close());
+
+    const config: ServiceConfig = {
+      url: server.getUrl('/api/items'),
+      method: 'GET',
+      query: { next: '694d547c9da28c73e2dfc5d4', previous: 'undefined', limit: 'null' },
+    };
+
+    const result = await executeService(config);
+
+    assert.strictEqual(result.status, 200);
+    assert.deepStrictEqual(result.body, { items: [] });
+  });
 });
 
 test('Executor - Headers and Cookies', async (t) => {
