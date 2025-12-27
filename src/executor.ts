@@ -20,8 +20,14 @@ export async function executeService(
     // Build URL with query params
     let url = config.url;
     if (config.query && Object.keys(config.query).length > 0) {
-      const params = new URLSearchParams(config.query);
-      url = `${url}?${params.toString()}`;
+      // Filter out undefined and null values
+      const filteredQuery = Object.fromEntries(
+        Object.entries(config.query).filter(([_, value]) => value != null)
+      );
+      if (Object.keys(filteredQuery).length > 0) {
+        const params = new URLSearchParams(filteredQuery);
+        url = `${url}?${params.toString()}`;
+      }
     }
 
     // Prepare headers
