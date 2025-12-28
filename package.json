@@ -1,6 +1,6 @@
 {
   "name": "undici-workflow-engine",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "description": "A workflow engine that orchestrates HTTP services using Undici.",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
