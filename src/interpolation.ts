@@ -4,6 +4,7 @@ import type { OrchestrationContext } from './types.js';
 /**
  * Recursively interpolates all string values in an object using JSONata
  * Supports direct JSONata expressions wrapped in curly braces: {expression}
+ * Also supports {-expression-} for complex expressions with nested braces
  *
  * The entire OrchestrationContext is available as the root object for evaluation.
  *
@@ -14,6 +15,7 @@ import type { OrchestrationContext } from './types.js';
  * - Functions: {items.$count()}
  * - Expressions: {price * 1.1}
  * - Array flattening: {[Account.Order.Product."Product Name"]}
+ * - Complex expressions with nested braces: {-$map(data, function($x) { {"id": $x.id} })-}
  *
  * Type preservation:
  * - Single token {expression} returns original type (number, boolean, array, object, etc.)
@@ -28,6 +30,15 @@ export async function interpolateObject(
   }
 
   if (typeof obj === 'string') {
+    // Check for {-expression-} syntax first (handles nested braces)
+    const complexTokenMatch = obj.match(/^\{-(.+)-\}$/s);
+    if (complexTokenMatch) {
+      // This is a complex token with potential nested braces
+      const jsonataExpr = complexTokenMatch[1];
+      const resolved = await evaluateJSONataAsync(jsonataExpr, context);
+      return resolved !== undefined ? resolved : obj;
+    }
+
     // Check if this is a single complete interpolation token (no text before/after)
     // Matches: {jsonata_expression} anywhere in the string
     const singleTokenMatch = obj.match(/^\{([^}]+)\}$/);
@@ -76,25 +87,42 @@ export function buildQueryString(query: Record<string, string>): string {
 
 /**
  * Interpolates a string with multiple JSONata expressions
- * Each {expression} is evaluated and replaced in the string
+ * Each {expression} or {-expression-} is evaluated and replaced in the string
  * Returns a string with all tokens replaced
  */
 async function interpolateStringAsync(
   value: string,
   context: OrchestrationContext
 ): Promise<string> {
-  // Match {expression} patterns
-  const regex = /\{([^}]+)\}/g;
   let result = value;
+
+  // First, handle {-expression-} patterns (complex expressions with nested braces)
+  const complexRegex = /\{-(.+?)-\}/gs;
+  const complexMatches: Array<{ fullMatch: string; expression: string }> = [];
   let match;
 
-  // Collect all matches first
+  while ((match = complexRegex.exec(value)) !== null) {
+    complexMatches.push({
+      fullMatch: match[0],
+      expression: match[1],
+    });
+  }
+
+  // Evaluate complex matches first
+  for (const m of complexMatches) {
+    const resolved = await evaluateJSONataAsync(m.expression, context);
+    const replacement = resolved !== undefined && resolved !== null ? String(resolved) : m.fullMatch;
+    result = result.replace(m.fullMatch, replacement);
+  }
+
+  // Then handle simple {expression} patterns
+  const regex = /\{([^}]+)\}/g;
   const matches: Array<{
     fullMatch: string;
     expression: string;
   }> = [];
 
-  while ((match = regex.exec(value)) !== null) {
+  while ((match = regex.exec(result)) !== null) {
     matches.push({
       fullMatch: match[0],
       expression: match[1],

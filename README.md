@@ -203,6 +203,31 @@ You can combine tokens with text in the same string:
 }
 ```
 
+### Complex Expressions with Nested Braces
+
+For complex JSONata expressions that contain nested braces (like `$map` with object construction), use the `{-expression-}` syntax:
+
+```typescript
+{
+  service: {
+    body: {
+      // Transform array of objects to pick specific fields
+      workspaces: '{-$map(workspacesService.body, function($w) { {"id": $w.id, "slug": $w.slug, "name": $w.name} })-}',
+
+      // Nested object transformation
+      items: '{-$map(dataService.body, function($item) { {"workspace": {"id": $item.id, "name": $item.name}, "owner": $item.ownerId} })-}',
+
+      // Extract single field from array
+      ids: '{-$map(listService.body, function($x) { $x.id })-}',
+    },
+  },
+}
+```
+
+**When to use `{-expression-}` vs `{expression}`:**
+- Use `{expression}` for simple expressions without nested braces
+- Use `{-expression-}` for complex JSONata expressions with nested braces (e.g., `$map` with object construction, complex transformations)
+
 ## Examples
 
 ### Authentication Flow

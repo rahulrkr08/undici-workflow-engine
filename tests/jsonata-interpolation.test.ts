@@ -310,3 +310,236 @@ test('JSONata Integration - InterpolateObject with Complex Structures', async t 
     assert.strictEqual(typeof result.message, 'string');
   });
 });
+
+test('JSONata Integration - Array Transformation and $map Function', async t => {
+  await t.test('should use $map to pick selected values from array of objects', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+      workspacesService: {
+        body: [
+          {
+            id: '6946b3af27fd23d5efefd605',
+            slug: 'test-workspace-1-hasjbs',
+            name: 'Test workspace 1',
+            description: '',
+            ownerId: '51237dca-40d1-703c-2417-34ab4f44cbeb',
+            settings: {},
+            metadata: {},
+            status: 'active',
+            createdAt: '2025-12-20T14:33:19.263Z',
+            updatedAt: '2025-12-28T10:34:11.610Z',
+          },
+          {
+            id: '6946b3af27fd23d5efefd606',
+            slug: 'test-workspace-2-xyz123',
+            name: 'Test workspace 2',
+            description: 'Second workspace',
+            ownerId: '51237dca-40d1-703c-2417-34ab4f44cbeb',
+            settings: {},
+            metadata: {},
+            status: 'active',
+            createdAt: '2025-12-21T09:15:30.123Z',
+            updatedAt: '2025-12-28T11:20:45.789Z',
+          },
+        ],
+      },
+    } as any;
+
+    // Using $map with {-expression-} syntax to handle nested braces
+    const result = await interpolateObject(
+      '{-$map(workspacesService.body, function($w) { {"id": $w.id, "slug": $w.slug, "name": $w.name} })-}',
+      context
+    );
+
+    // Should return array with only selected fields
+    assert.strictEqual(Array.isArray(result), true);
+    assert.strictEqual(result.length, 2);
+    assert.deepStrictEqual(result[0], {
+      id: '6946b3af27fd23d5efefd605',
+      slug: 'test-workspace-1-hasjbs',
+      name: 'Test workspace 1',
+    });
+    assert.deepStrictEqual(result[1], {
+      id: '6946b3af27fd23d5efefd606',
+      slug: 'test-workspace-2-xyz123',
+      name: 'Test workspace 2',
+    });
+  });
+
+  await t.test('should use $map with complex nested braces', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+      workspacesService: {
+        body: [
+          {
+            id: '6946b3af27fd23d5efefd605',
+            slug: 'test-workspace-1-hasjbs',
+            name: 'Test workspace 1',
+            description: '',
+            ownerId: '51237dca-40d1-703c-2417-34ab4f44cbeb',
+            settings: {},
+            metadata: {},
+            status: 'active',
+            createdAt: '2025-12-20T14:33:19.263Z',
+            updatedAt: '2025-12-28T10:34:11.610Z',
+          },
+          {
+            id: '6946b3af27fd23d5efefd606',
+            slug: 'test-workspace-2-xyz123',
+            name: 'Test workspace 2',
+            description: 'Second workspace',
+            ownerId: '51237dca-40d1-703c-2417-34ab4f44cbeb',
+            settings: {},
+            metadata: {},
+            status: 'active',
+            createdAt: '2025-12-21T09:15:30.123Z',
+            updatedAt: '2025-12-28T11:20:45.789Z',
+          },
+        ],
+      },
+    } as any;
+
+    // Using $map with complex object construction
+    const result = await interpolateObject(
+      '{-$map(workspacesService.body, function($w) { {"id": $w.id, "slug": $w.slug, "name": $w.name} })-}',
+      context
+    );
+
+    // Should return array with only selected fields
+    assert.strictEqual(Array.isArray(result), true);
+    assert.strictEqual(result.length, 2);
+    assert.deepStrictEqual(result[0], {
+      id: '6946b3af27fd23d5efefd605',
+      slug: 'test-workspace-1-hasjbs',
+      name: 'Test workspace 1',
+    });
+    assert.deepStrictEqual(result[1], {
+      id: '6946b3af27fd23d5efefd606',
+      slug: 'test-workspace-2-xyz123',
+      name: 'Test workspace 2',
+    });
+  });
+
+  await t.test('should use $map to extract single field from array', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+      workspacesService: {
+        body: [
+          { id: '1', name: 'Workspace A', status: 'active' },
+          { id: '2', name: 'Workspace B', status: 'inactive' },
+          { id: '3', name: 'Workspace C', status: 'active' },
+        ],
+      },
+    } as any;
+
+    // Extract only IDs using $map
+    const result = await interpolateObject(
+      '{-$map(workspacesService.body, function($w) { $w.id })-}',
+      context
+    );
+
+    assert.strictEqual(Array.isArray(result), true);
+    assert.strictEqual(result.length, 3);
+    assert.strictEqual(result[0], '1');
+    assert.strictEqual(result[1], '2');
+    assert.strictEqual(result[2], '3');
+  });
+
+  await t.test('should use $map with nested object transformation', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+      workspacesService: {
+        body: [
+          {
+            id: '1',
+            slug: 'workspace-1',
+            name: 'Workspace 1',
+            ownerId: 'owner-123',
+          },
+          {
+            id: '2',
+            slug: 'workspace-2',
+            name: 'Workspace 2',
+            ownerId: 'owner-456',
+          },
+        ],
+      },
+    } as any;
+
+    // Transform to nested structure using $map
+    const result = await interpolateObject(
+      '{-$map(workspacesService.body, function($w) { {"workspace": {"id": $w.id, "name": $w.name}, "owner": $w.ownerId} })-}',
+      context
+    );
+
+    assert.strictEqual(Array.isArray(result), true);
+    assert.strictEqual(result.length, 2);
+    assert.deepStrictEqual(result[0], {
+      workspace: { id: '1', name: 'Workspace 1' },
+      owner: 'owner-123',
+    });
+    assert.deepStrictEqual(result[1], {
+      workspace: { id: '2', name: 'Workspace 2' },
+      owner: 'owner-456',
+    });
+  });
+
+  await t.test('should filter array by status', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+      workspacesService: {
+        body: [
+          { id: '1', name: 'Workspace A', status: 'active' },
+          { id: '2', name: 'Workspace B', status: 'inactive' },
+          { id: '3', name: 'Workspace C', status: 'active' },
+        ],
+      },
+    } as any;
+
+    // Filter by status using JSONata predicate syntax
+    const result = await interpolateObject('{workspacesService.body[status="active"]}', context);
+
+    assert.strictEqual(Array.isArray(result), true);
+    assert.strictEqual(result.length, 2);
+    assert.strictEqual(result[0].id, '1');
+    assert.strictEqual(result[1].id, '3');
+  });
+
+  await t.test('should filter and extract field from filtered array', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+      workspacesService: {
+        body: [
+          { id: '1', name: 'Workspace A', status: 'active' },
+          { id: '2', name: 'Workspace B', status: 'inactive' },
+          { id: '3', name: 'Workspace C', status: 'active' },
+        ],
+      },
+    } as any;
+
+    // Filter by status and extract names
+    const result = await interpolateObject('{workspacesService.body[status="active"].name}', context);
+
+    assert.strictEqual(Array.isArray(result), true);
+    assert.strictEqual(result.length, 2);
+    assert.strictEqual(result[0], 'Workspace A');
+    assert.strictEqual(result[1], 'Workspace C');
+  });
+
+  await t.test('should use array index to access specific element', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+      workspacesService: {
+        body: [
+          { id: '1', name: 'First Workspace' },
+          { id: '2', name: 'Second Workspace' },
+        ],
+      },
+    } as any;
+
+    // Access first element's name
+    const result = await interpolateObject('{workspacesService.body[0].name}', context);
+
+    assert.strictEqual(result, 'First Workspace');
+  });
+});
