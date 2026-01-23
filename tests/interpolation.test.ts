@@ -107,6 +107,70 @@ test('Interpolation - interpolateObject', async t => {
 
     assert.deepStrictEqual(result, input);
   });
+
+  await t.test('should handle complex {-expression-} syntax in mixed text', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+      data: [1, 2, 3],
+    } as any;
+
+    // Test {-expression-} in a string with other text (covers lines 105-109, 113-116)
+    const input = 'Result: {-$sum(data)-} items';
+    const result = await interpolateObject(input, context);
+
+    assert.strictEqual(result, 'Result: 6 items');
+  });
+
+  await t.test('should handle multiple complex {-expression-} patterns in text', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+      values: [10, 20, 30],
+      multiplier: 2,
+    } as any;
+
+    const input = 'Sum: {-$sum(values)-}, Count: {-$count(values)-}';
+    const result = await interpolateObject(input, context);
+
+    assert.strictEqual(result, 'Sum: 60, Count: 3');
+  });
+
+  await t.test('should return original expression when complex pattern evaluation returns null', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+    } as any;
+
+    const input = 'Value: {-nonexistent.path-}';
+    const result = await interpolateObject(input, context);
+
+    // When evaluation returns undefined/null, original is kept
+    assert.strictEqual(result, 'Value: {-nonexistent.path-}');
+  });
+
+  await t.test('should return undefined when JSONata expression is invalid', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+    } as any;
+
+    // Invalid JSONata syntax should trigger the catch block (covers lines 156-158)
+    const input = '{invalid jsonata [[[syntax}';
+    const result = await interpolateObject(input, context);
+
+    // Should return original string when expression fails to parse
+    assert.strictEqual(result, '{invalid jsonata [[[syntax}');
+  });
+
+  await t.test('should handle invalid JSONata in complex syntax', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+    } as any;
+
+    // Invalid JSONata in {-expression-} syntax
+    const input = '{-$unknownFunction(bad syntax-}';
+    const result = await interpolateObject(input, context);
+
+    // Should return original when evaluation fails
+    assert.strictEqual(result, '{-$unknownFunction(bad syntax-}');
+  });
 });
 
 test('Interpolation - cookiesToHeader', async t => {

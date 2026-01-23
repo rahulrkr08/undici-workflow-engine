@@ -484,6 +484,37 @@ test('JSONata Integration - Array Transformation and $map Function', async t => 
     });
   });
 
+  await t.test('should use $map with single item array and return array', async () => {
+    const context: OrchestrationContext = {
+      request: {},
+      workspacesService: {
+        body: [
+          {
+            id: '6946b3af27fd23d5efefd605',
+            slug: 'test-workspace-1-hasjbs',
+            name: 'Test workspace 1',
+            ownerId: '51237dca-40d1-703c-2417-34ab4f44cbeb',
+          },
+        ],
+      },
+    } as any;
+
+    // Wrap $map in [] to ensure it always returns an array, even with single item
+    const result = await interpolateObject(
+      '{-[$map(workspacesService.body, function($w) { {"id": $w.id, "slug": $w.slug, "name": $w.name} })]-}',
+      context
+    );
+
+    // Should return array even with single item
+    assert.strictEqual(Array.isArray(result), true);
+    assert.strictEqual(result.length, 1);
+    assert.deepStrictEqual(result[0], {
+      id: '6946b3af27fd23d5efefd605',
+      slug: 'test-workspace-1-hasjbs',
+      name: 'Test workspace 1',
+    });
+  });
+
   await t.test('should filter array by status', async () => {
     const context: OrchestrationContext = {
       request: {},

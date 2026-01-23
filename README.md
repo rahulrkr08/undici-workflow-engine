@@ -219,6 +219,10 @@ For complex JSONata expressions that contain nested braces (like `$map` with obj
 
       // Extract single field from array
       ids: '{-$map(listService.body, function($x) { $x.id })-}',
+
+      // Ensure $map always returns an array (even with single item)
+      // Wrap $map in [] to force array output
+      workspacesArray: '{-[$map(workspacesService.body, function($w) { {"id": $w.id, "name": $w.name} })]-}',
     },
   },
 }
